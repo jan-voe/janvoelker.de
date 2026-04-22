@@ -93,6 +93,13 @@
         box-sizing: border-box;
       }
 
+      /* Disable SVG filter on mobile/touch devices for better performance */
+      @media (hover: none) and (pointer: coarse) {
+        #app {
+          filter: none;
+        }
+      }
+
       .card {
         background: rgba(255, 255, 255, 0.03);
         backdrop-filter: blur(30px);
@@ -201,6 +208,14 @@
         pointer-events: none;
         background: radial-gradient(circle at var(--x) var(--y), transparent var(--s), rgba(0, 209, 255, 0.05) calc(var(--s) + 100px), transparent calc(var(--s) + 300px));
         opacity: var(--o);
+        z-index: 1;
+      }
+
+      /* More visible wave overlay on mobile/touch devices */
+      @media (hover: none) and (pointer: coarse) {
+        .wave-overlay {
+          background: radial-gradient(circle at var(--x) var(--y), transparent var(--s), rgba(0, 209, 255, 0.25) calc(var(--s) + 100px), transparent calc(var(--s) + 300px));
+        }
       }
     </style>
   </head>
@@ -246,6 +261,7 @@
       const turb = document.getElementById('turb');
       const disp = document.getElementById('disp');
       const card = document.getElementById('card');
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
       // Initialize icons
       lucide.createIcons();
@@ -313,8 +329,10 @@
 
       const animateRipples = (time) => {
         if (ripples.length === 0) {
-          turb.setAttribute('baseFrequency', '0');
-          disp.setAttribute('scale', '0');
+          if (!isTouchDevice) {
+            turb.setAttribute('baseFrequency', '0');
+            disp.setAttribute('scale', '0');
+          }
           return;
         }
 
@@ -332,8 +350,11 @@
             const freq = 0.005 + Math.sin(p * Math.PI) * 0.002;
             const scale = Math.sin(p * Math.PI) * 120 * fade;
 
-            r.el.style.setProperty('--s', easeOut * 2500 + 'px');
-            r.el.style.setProperty('--o', fade * 0.8);
+            // Adjust radius and opacity for touch devices
+            const maxRadius = isTouchDevice ? Math.min(2500, Math.max(window.innerWidth, window.innerHeight) * 0.8) : 2500;
+            const opacityMultiplier = isTouchDevice ? 1.2 : 0.8;
+            r.el.style.setProperty('--s', easeOut * maxRadius + 'px');
+            r.el.style.setProperty('--o', fade * opacityMultiplier);
 
             totalScale += scale;
             totalFreq = Math.max(totalFreq, freq);
@@ -343,8 +364,10 @@
           }
         }
 
-        turb.setAttribute('baseFrequency', totalFreq);
-        disp.setAttribute('scale', Math.min(totalScale, 200));
+        if (!isTouchDevice) {
+          turb.setAttribute('baseFrequency', totalFreq);
+          disp.setAttribute('scale', Math.min(totalScale, 200));
+        }
 
         requestAnimationFrame(animateRipples);
       };
