@@ -391,8 +391,12 @@
           if (p < 1) {
             const easeOut = 1 - Math.pow(1 - p, 3);
             const fade = 1 - Math.pow(p, 2);
-            const freq = 0.005 + Math.sin(p * Math.PI) * 0.002;
-            const scale = Math.sin(p * Math.PI) * 120 * fade;
+            // Custom wave intensity: quick rise to peak, then slow fade
+            // Peak at 30% of duration, then quadratic fade
+            const waveIntensity = p < 0.3 ? p / 0.3 : 1 - Math.pow((p - 0.3) / 0.7, 2);
+            const freq = 0.005 + waveIntensity * 0.002;
+            // Scale follows wave intensity with additional fade
+            const scale = waveIntensity * 120 * fade;
 
             // Adjust radius and opacity for touch devices
             const maxRadius = isTouchDevice ? Math.min(2500, Math.max(window.innerWidth, window.innerHeight) * 0.8) : 2500;
