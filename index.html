@@ -90,6 +90,7 @@
         filter: url(#ripple);
         padding: 20px;
         box-sizing: border-box;
+        perspective: 1000px;
       }
 
       /* Disable SVG filter on mobile/touch devices for better performance */
@@ -116,6 +117,7 @@
         opacity: 0;
         transform: translateY(30px);
         will-change: transform, opacity;
+        transform-style: preserve-3d;
       }
 
       .card.visible {
@@ -432,23 +434,19 @@
         }
       });
 
-      // Device tilt effect
+      // Device tilt effect with debug UI and dynamic bounds
       (function () {
         const card = document.getElementById('card');
         if (!card) return;
-
-        // Check if DeviceOrientation is supported
-        if (!window.DeviceOrientationEvent) {
-          console.log('DeviceOrientation not supported');
-          return;
-        }
 
         // Smoothing factor (0 = no smoothing, 1 = no change) - lower = smoother
         const SMOOTHING = 0.15;
         // Maximum tilt angle to consider (degrees)
         const MAX_TILT = 30;
-        // Maximum translation in pixels
-        const MAX_TRANSLATE = 20;
+        // Maximum rotation angle (degrees)
+        const MAX_ROTATION = 10;
+        // Minimum margin from viewport edges (pixels)
+        const MIN_MARGIN = 20;
         // Animation frame ID
         let animationFrame = null;
 
@@ -456,6 +454,37 @@
         let smoothedBeta = 0;
         let targetGamma = 0;
         let targetBeta = 0;
+        let maxTranslateX = 20; // fallback
+        let maxTranslateY = 20;
+
+        // Compute maximum translation based on card size and viewport
+        const computeMaxTranslation = () => {
+          const rect = card.getBoundingClientRect();
+          const viewportWidth = window.innerWidth;
+          const viewportHeight = window.innerHeight;
+
+          // Distance from card center to viewport edges (card is centered)
+          const horizontalSpace = (viewportWidth - rect.width) / 2;
+          const verticalSpace = (viewportHeight - rect.height) / 2;
+
+          // Subtract minimum margin
+          const safeX = Math.max(0, horizontalSpace - MIN_MARGIN);
+          const safeY = Math.max(0, verticalSpace - MIN_MARGIN);
+
+          // Limit to a reasonable maximum so tilt doesn't move too far on large screens
+          const MAX_LIMIT = 15;
+          return {
+            maxX: Math.min(safeX, MAX_LIMIT),
+            maxY: Math.min(safeY, MAX_LIMIT),
+          };
+        };
+
+        // Update max translation values
+        const updateMaxTranslation = () => {
+          const { maxX, maxY } = computeMaxTranslation();
+          maxTranslateX = maxX;
+          maxTranslateY = maxY;
+        };
 
         // Update target values on device orientation
         const handleOrientation = (event) => {
@@ -467,6 +496,12 @@
           // Clamp to max tilt
           targetGamma = Math.max(-MAX_TILT, Math.min(MAX_TILT, gamma));
           targetBeta = Math.max(-MAX_TILT, Math.min(MAX_TILT, beta));
+
+          // Update debug sliders if they exist
+          if (window.debugSliders) {
+            window.debugSliders.gamma.value = targetGamma;
+            window.debugSliders.beta.value = targetBeta;
+          }
         };
 
         // Smoothing function (exponential moving average)
@@ -479,12 +514,24 @@
         const applyTilt = () => {
           smooth();
 
-          // Map tilt to translation
-          const translateX = (smoothedGamma / MAX_TILT) * MAX_TRANSLATE;
-          const translateY = (smoothedBeta / MAX_TILT) * MAX_TRANSLATE;
+          // Map tilt to translation using dynamic max values
+          const translateX = (smoothedGamma / MAX_TILT) * maxTranslateX;
+          const translateY = (smoothedBeta / MAX_TILT) * maxTranslateY;
 
-          // Apply transform, preserving any existing transforms (like entrance animation)
-          card.style.transform = `translate(${translateX}px, ${translateY}px)`;
+          // Map tilt to rotation
+          const rotateY = (smoothedGamma / MAX_TILT) * MAX_ROTATION;
+          const rotateX = (smoothedBeta / MAX_TILT) * MAX_ROTATION;
+
+          // Apply transform with translation and rotation (order: translate then rotate for natural feel)
+          card.style.transform = `translate(${translateX}px, ${translateY}px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+
+          // Update debug display if it exists
+          if (window.debugPanel) {
+            const debugText = window.debugPanel.querySelector('.debug-text');
+            if (debugText) {
+              debugText.textContent = `Gamma: ${targetGamma.toFixed(1)}°, Beta: ${targetBeta.toFixed(1)}° → X: ${translateX.toFixed(1)}px, Y: ${translateY.toFixed(1)}px, rotX: ${rotateX.toFixed(1)}°, rotY: ${rotateY.toFixed(1)}°`;
+            }
+          }
 
           // Continue animation
           animationFrame = requestAnimationFrame(applyTilt);
@@ -492,12 +539,22 @@
 
         // Start tilt animation after card entrance
         setTimeout(() => {
+          updateMaxTranslation();
           if (animationFrame) cancelAnimationFrame(animationFrame);
           animationFrame = requestAnimationFrame(applyTilt);
         }, 1000); // Wait a bit longer after card entrance
 
-        // Add event listener
-        window.addEventListener('deviceorientation', handleOrientation);
+        // Add event listener if DeviceOrientation is supported
+        if (window.DeviceOrientationEvent) {
+          window.addEventListener('deviceorientation', handleOrientation);
+        } else {
+          console.log('DeviceOrientation not supported - using debug mode only');
+        }
+
+        // Update max translation on resize
+        window.addEventListener('resize', () => {
+          updateMaxTranslation();
+        });
 
         // Cleanup on page hide
         window.addEventListener('visibilitychange', () => {
@@ -512,6 +569,82 @@
             }
           }
         });
+
+        // --- Debug UI ---
+        const debugPanel = document.createElement('div');
+        debugPanel.id = 'tilt-debug-panel';
+        debugPanel.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: rgba(0, 0, 0, 0.85);
+          color: white;
+          font-family: monospace;
+          font-size: 12px;
+          padding: 15px;
+          border-radius: 8px;
+          border: 1px solid #00d1ff;
+          z-index: 10000;
+          max-width: 300px;
+          display: none;
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        `;
+        debugPanel.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong>Tilt Debug</strong>
+            <button id="debug-close" style="background: transparent; border: none; color: #00d1ff; cursor: pointer; font-size: 16px;">×</button>
+          </div>
+          <div class="debug-text" style="margin-bottom: 15px;">Gamma: 0°, Beta: 0° → X: 0px, Y: 0px</div>
+          <div style="margin-bottom: 10px;">
+            <label style="display: block; margin-bottom: 5px;">Gamma (left/right): <span id="gamma-value">0</span>°</label>
+            <input type="range" id="gamma-slider" min="-30" max="30" step="1" value="0" style="width: 100%;">
+          </div>
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px;">Beta (front/back): <span id="beta-value">0</span>°</label>
+            <input type="range" id="beta-slider" min="-30" max="30" step="1" value="0" style="width: 100%;">
+          </div>
+          <div style="font-size: 11px; opacity: 0.7;">
+            Press 'D' to toggle this panel. Sliders simulate device tilt.
+          </div>
+        `;
+        document.body.appendChild(debugPanel);
+        window.debugPanel = debugPanel;
+
+        // Store slider references globally for easy access
+        const gammaSlider = debugPanel.querySelector('#gamma-slider');
+        const betaSlider = debugPanel.querySelector('#beta-slider');
+        const gammaValue = debugPanel.querySelector('#gamma-value');
+        const betaValue = debugPanel.querySelector('#beta-value');
+        const closeButton = debugPanel.querySelector('#debug-close');
+
+        window.debugSliders = { gamma: gammaSlider, beta: betaSlider };
+
+        // Update target values when sliders change
+        gammaSlider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          targetGamma = val;
+          gammaValue.textContent = val;
+        });
+        betaSlider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          targetBeta = val;
+          betaValue.textContent = val;
+        });
+
+        // Close button
+        closeButton.addEventListener('click', () => {
+          debugPanel.style.display = 'none';
+        });
+
+        // Keyboard shortcut: 'd' to toggle debug panel
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'd' || e.key === 'D') {
+            debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+          }
+        });
+
+        // Initially hide the panel
+        debugPanel.style.display = 'none';
       })();
     </script>
   </body>
