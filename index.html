@@ -431,6 +431,88 @@
           triggerWave(touch.clientX, touch.clientY);
         }
       });
+
+      // Device tilt effect
+      (function () {
+        const card = document.getElementById('card');
+        if (!card) return;
+
+        // Check if DeviceOrientation is supported
+        if (!window.DeviceOrientationEvent) {
+          console.log('DeviceOrientation not supported');
+          return;
+        }
+
+        // Smoothing factor (0 = no smoothing, 1 = no change) - lower = smoother
+        const SMOOTHING = 0.15;
+        // Maximum tilt angle to consider (degrees)
+        const MAX_TILT = 30;
+        // Maximum translation in pixels
+        const MAX_TRANSLATE = 20;
+        // Animation frame ID
+        let animationFrame = null;
+
+        let smoothedGamma = 0;
+        let smoothedBeta = 0;
+        let targetGamma = 0;
+        let targetBeta = 0;
+
+        // Update target values on device orientation
+        const handleOrientation = (event) => {
+          // gamma: left/right tilt ( -90 to 90 )
+          // beta: front/back tilt ( -180 to 180 )
+          const gamma = event.gamma !== null ? event.gamma : 0;
+          const beta = event.beta !== null ? event.beta : 0;
+
+          // Clamp to max tilt
+          targetGamma = Math.max(-MAX_TILT, Math.min(MAX_TILT, gamma));
+          targetBeta = Math.max(-MAX_TILT, Math.min(MAX_TILT, beta));
+        };
+
+        // Smoothing function (exponential moving average)
+        const smooth = () => {
+          smoothedGamma = smoothedGamma + (targetGamma - smoothedGamma) * SMOOTHING;
+          smoothedBeta = smoothedBeta + (targetBeta - smoothedBeta) * SMOOTHING;
+        };
+
+        // Apply transform to card
+        const applyTilt = () => {
+          smooth();
+
+          // Map tilt to translation
+          const translateX = (smoothedGamma / MAX_TILT) * MAX_TRANSLATE;
+          const translateY = (smoothedBeta / MAX_TILT) * MAX_TRANSLATE;
+
+          // Apply transform, preserving any existing transforms (like entrance animation)
+          card.style.transform = `translate(${translateX}px, ${translateY}px)`;
+
+          // Continue animation
+          animationFrame = requestAnimationFrame(applyTilt);
+        };
+
+        // Start tilt animation after card entrance
+        setTimeout(() => {
+          if (animationFrame) cancelAnimationFrame(animationFrame);
+          animationFrame = requestAnimationFrame(applyTilt);
+        }, 1000); // Wait a bit longer after card entrance
+
+        // Add event listener
+        window.addEventListener('deviceorientation', handleOrientation);
+
+        // Cleanup on page hide
+        window.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            if (animationFrame) {
+              cancelAnimationFrame(animationFrame);
+              animationFrame = null;
+            }
+          } else {
+            if (!animationFrame) {
+              animationFrame = requestAnimationFrame(applyTilt);
+            }
+          }
+        });
+      })();
     </script>
   </body>
 </html>
