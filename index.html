@@ -435,7 +435,7 @@
         }
       });
 
-      // Device tilt effect with debug UI and dynamic bounds
+      // Device tilt effect with dynamic bounds
       (function () {
         const card = document.getElementById('card');
         if (!card) return;
@@ -497,12 +497,6 @@
           // Clamp to max tilt
           targetGamma = Math.max(-MAX_TILT, Math.min(MAX_TILT, gamma));
           targetBeta = Math.max(-MAX_TILT, Math.min(MAX_TILT, beta));
-
-          // Update debug sliders if they exist
-          if (window.debugSliders) {
-            window.debugSliders.gamma.value = targetGamma;
-            window.debugSliders.beta.value = targetBeta;
-          }
         };
 
         // Smoothing function (exponential moving average)
@@ -526,14 +520,6 @@
           // Apply transform with translation and rotation (order: translate then rotate for natural feel)
           card.style.transform = `translate(${translateX}px, ${translateY}px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
 
-          // Update debug display if it exists
-          if (window.debugPanel) {
-            const debugText = window.debugPanel.querySelector('.debug-text');
-            if (debugText) {
-              debugText.textContent = `Gamma: ${targetGamma.toFixed(1)}°, Beta: ${targetBeta.toFixed(1)}° → X: ${translateX.toFixed(1)}px, Y: ${translateY.toFixed(1)}px, rotX: ${rotateX.toFixed(1)}°, rotY: ${rotateY.toFixed(1)}°`;
-            }
-          }
-
           // Continue animation
           animationFrame = requestAnimationFrame(applyTilt);
         };
@@ -545,65 +531,10 @@
           animationFrame = requestAnimationFrame(applyTilt);
         }, 1000); // Wait a bit longer after card entrance
 
-        // Permission handling for iOS 13+
-        const initDeviceOrientation = () => {
-          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            // iOS: need to request permission
-            const permissionPrompt = document.createElement('div');
-            permissionPrompt.id = 'tilt-permission-prompt';
-            permissionPrompt.style.cssText = `
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-              background: rgba(0, 0, 0, 0.85);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              z-index: 1000;
-              border-radius: inherit;
-              backdrop-filter: blur(10px);
-            `;
-            permissionPrompt.innerHTML = `
-              <div style="background: rgba(0, 18, 31, 0.95); padding: 2rem; border-radius: 2rem; text-align: center; max-width: 300px; border: 1px solid var(--cyan);">
-                <p style="margin: 0 0 1rem; font-size: 0.9rem; opacity: 0.9;">Tilt effect requires permission to access device orientation.</p>
-                <button id="tilt-permission-btn" style="background: var(--cyan); color: black; border: none; padding: 0.75rem 1.5rem; border-radius: 999px; font-weight: 800; cursor: pointer; font-family: inherit;">Allow Tilt</button>
-              </div>
-            `;
-            card.appendChild(permissionPrompt);
-
-            const requestPermission = () => {
-              DeviceOrientationEvent.requestPermission()
-                .then((permissionState) => {
-                  if (permissionState === 'granted') {
-                    window.addEventListener('deviceorientation', handleOrientation);
-                    permissionPrompt.remove();
-                    // Update impact text
-                    const impactClick = document.querySelector('.impact-click');
-                    const impactTap = document.querySelector('.impact-tap');
-                    if (impactClick) impactClick.textContent = 'TILT TO CREATE AN IMPACT';
-                    if (impactTap) impactTap.textContent = 'TILT TO CREATE AN IMPACT';
-                  } else {
-                    const p = permissionPrompt.querySelector('p');
-                    if (p) p.textContent = 'Permission denied. You can still use sliders in debug panel (press D).';
-                  }
-                })
-                .catch(console.error);
-            };
-
-            document.getElementById('tilt-permission-btn').addEventListener('click', requestPermission);
-            // Also allow clicking anywhere on the prompt background to dismiss? Maybe not.
-          } else if (window.DeviceOrientationEvent) {
-            // Non-iOS browsers that support DeviceOrientation
-            window.addEventListener('deviceorientation', handleOrientation);
-          } else {
-            console.log('DeviceOrientation not supported - using debug mode only');
-          }
-        };
-
-        // Initialize device orientation after card entrance
-        setTimeout(initDeviceOrientation, 1000);
+        // Add device orientation listener if supported
+        if (window.DeviceOrientationEvent) {
+          window.addEventListener('deviceorientation', handleOrientation);
+        }
 
         // Update max translation on resize
         window.addEventListener('resize', () => {
@@ -623,82 +554,6 @@
             }
           }
         });
-
-        // --- Debug UI ---
-        const debugPanel = document.createElement('div');
-        debugPanel.id = 'tilt-debug-panel';
-        debugPanel.style.cssText = `
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          background: rgba(0, 0, 0, 0.85);
-          color: white;
-          font-family: monospace;
-          font-size: 12px;
-          padding: 15px;
-          border-radius: 8px;
-          border: 1px solid #00d1ff;
-          z-index: 10000;
-          max-width: 300px;
-          display: none;
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-        `;
-        debugPanel.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <strong>Tilt Debug</strong>
-            <button id="debug-close" style="background: transparent; border: none; color: #00d1ff; cursor: pointer; font-size: 16px;">×</button>
-          </div>
-          <div class="debug-text" style="margin-bottom: 15px;">Gamma: 0°, Beta: 0° → X: 0px, Y: 0px</div>
-          <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px;">Gamma (left/right): <span id="gamma-value">0</span>°</label>
-            <input type="range" id="gamma-slider" min="-30" max="30" step="1" value="0" style="width: 100%;">
-          </div>
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px;">Beta (front/back): <span id="beta-value">0</span>°</label>
-            <input type="range" id="beta-slider" min="-30" max="30" step="1" value="0" style="width: 100%;">
-          </div>
-          <div style="font-size: 11px; opacity: 0.7;">
-            Press 'D' to toggle this panel. Sliders simulate device tilt.
-          </div>
-        `;
-        document.body.appendChild(debugPanel);
-        window.debugPanel = debugPanel;
-
-        // Store slider references globally for easy access
-        const gammaSlider = debugPanel.querySelector('#gamma-slider');
-        const betaSlider = debugPanel.querySelector('#beta-slider');
-        const gammaValue = debugPanel.querySelector('#gamma-value');
-        const betaValue = debugPanel.querySelector('#beta-value');
-        const closeButton = debugPanel.querySelector('#debug-close');
-
-        window.debugSliders = { gamma: gammaSlider, beta: betaSlider };
-
-        // Update target values when sliders change
-        gammaSlider.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value);
-          targetGamma = val;
-          gammaValue.textContent = val;
-        });
-        betaSlider.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value);
-          targetBeta = val;
-          betaValue.textContent = val;
-        });
-
-        // Close button
-        closeButton.addEventListener('click', () => {
-          debugPanel.style.display = 'none';
-        });
-
-        // Keyboard shortcut: 'd' to toggle debug panel
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'd' || e.key === 'D') {
-            debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
-          }
-        });
-
-        // Initially hide the panel
-        debugPanel.style.display = 'none';
       })();
     </script>
   </body>
