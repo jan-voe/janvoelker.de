@@ -111,9 +111,7 @@
         max-width: 800px;
         width: 100%;
         box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
-        transition:
-          transform 0.3s ease,
-          opacity 1s ease;
+        transition: opacity 1s ease;
         opacity: 0;
         transform: translateY(30px);
         will-change: transform, opacity;
@@ -239,6 +237,23 @@
       }
       .email-link.unlocking i {
         animation: spin 0.5s ease;
+      }
+
+      /* Underwater plant sway animation */
+      @keyframes sway {
+        0%,
+        100% {
+          transform: translate(0, 0) rotate(0deg);
+        }
+        25% {
+          transform: translate(0.5px, -0.3px) rotate(0.1deg);
+        }
+        50% {
+          transform: translate(-0.3px, 0.5px) rotate(-0.05deg);
+        }
+        75% {
+          transform: translate(0.2px, 0.4px) rotate(0.07deg);
+        }
       }
     </style>
   </head>
@@ -435,7 +450,7 @@
         }
       });
 
-      // Device tilt effect with dynamic bounds
+      // Device tilt effect with dynamic bounds and underwater plant sway
       (function () {
         const card = document.getElementById('card');
         if (!card) return;
@@ -457,6 +472,22 @@
         let targetBeta = 0;
         let maxTranslateX = 20; // fallback
         let maxTranslateY = 20;
+
+        // Underwater plant sway variables
+        let swayOffsetX = 0;
+        let swayOffsetY = 0;
+        let swayRotateX = 0;
+        let swayRotateY = 0;
+        let swayTime = 0;
+        const SWAY_SPEED = 0.001; // How fast the sway changes
+        const SWAY_AMPLITUDE = 0; // No translation offset
+        const SWAY_ROTATION_AMPLITUDE = 2; // Stronger rotation offset in degrees
+        const SWAY_RANDOM_INTERVAL = 3000; // How often to generate new random targets (ms)
+        let lastRandomTime = 0;
+        let targetSwayX = 0;
+        let targetSwayY = 0;
+        let targetSwayRotX = 0;
+        let targetSwayRotY = 0;
 
         // Compute maximum translation based on card size and viewport
         const computeMaxTranslation = () => {
@@ -505,9 +536,46 @@
           smoothedBeta = smoothedBeta + (targetBeta - smoothedBeta) * SMOOTHING;
         };
 
-        // Apply transform to card
-        const applyTilt = () => {
+        // Update underwater plant sway values
+        const updateSway = (time) => {
+          swayTime += SWAY_SPEED;
+
+          // Generate new random targets periodically
+          if (time - lastRandomTime > SWAY_RANDOM_INTERVAL) {
+            lastRandomTime = time;
+            targetSwayX = (Math.random() - 0.5) * 2 * SWAY_AMPLITUDE;
+            targetSwayY = (Math.random() - 0.5) * 2 * SWAY_AMPLITUDE;
+            targetSwayRotX = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
+            targetSwayRotY = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
+          }
+
+          // Smoothly interpolate towards targets
+          const swaySmoothing = 0.02;
+          swayOffsetX += (targetSwayX - swayOffsetX) * swaySmoothing;
+          swayOffsetY += (targetSwayY - swayOffsetY) * swaySmoothing;
+          swayRotateX += (targetSwayRotX - swayRotateX) * swaySmoothing;
+          swayRotateY += (targetSwayRotY - swayRotateY) * swaySmoothing;
+
+          // Add subtle periodic movement using sine waves for organic feel
+          const waveX = 0; // No translation wave
+          const waveY = 0;
+          const waveRotX = Math.sin(swayTime * 0.3) * 0.3;
+          const waveRotY = Math.cos(swayTime * 0.9) * 0.3;
+
+          return {
+            x: swayOffsetX + waveX,
+            y: swayOffsetY + waveY,
+            rotX: swayRotateX + waveRotX,
+            rotY: swayRotateY + waveRotY,
+          };
+        };
+
+        // Apply transform to card with tilt and underwater sway
+        const applyTilt = (time) => {
           smooth();
+
+          // Calculate sway offsets
+          const sway = updateSway(time);
 
           // Map tilt to translation using dynamic max values
           const translateX = (smoothedGamma / MAX_TILT) * maxTranslateX;
@@ -517,8 +585,14 @@
           const rotateY = (smoothedGamma / MAX_TILT) * MAX_ROTATION;
           const rotateX = (smoothedBeta / MAX_TILT) * MAX_ROTATION;
 
+          // Combine tilt with sway offsets
+          const totalTranslateX = translateX + sway.x;
+          const totalTranslateY = translateY + sway.y;
+          const totalRotateX = rotateX + sway.rotX;
+          const totalRotateY = rotateY + sway.rotY;
+
           // Apply transform with translation and rotation (order: translate then rotate for natural feel)
-          card.style.transform = `translate(${translateX}px, ${translateY}px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+          card.style.transform = `translate(${totalTranslateX}px, ${totalTranslateY}px) rotateX(${totalRotateX}deg) rotateY(${totalRotateY}deg)`;
 
           // Continue animation
           animationFrame = requestAnimationFrame(applyTilt);
