@@ -14,7 +14,7 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:site_name" content="Jan Völker | UX Design" />
-    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale" content="de_DE" />
     <!-- Twitter Card -->
     <meta name="twitter:title" content="Jan Völker | UX Design" />
     <meta name="twitter:description" content="UX Designer @ GOT BAG. Designing digital experiences that ripple through the physical world." />
@@ -36,9 +36,6 @@
         --ocean: #002b49;
         --cyan: #00d1ff;
         --white: #ffffff;
-        --ripple-x: 50%;
-        --ripple-y: 50%;
-        --ripple-s: 0;
       }
 
       body {
@@ -212,9 +209,6 @@
           display: inline;
         }
         /* Disable hover effects on touch devices */
-        .card:hover {
-          transform: none;
-        }
         .social-link:hover {
           opacity: 0.3;
           transform: none;
@@ -232,29 +226,18 @@
         width: 100%;
         height: 100%;
         pointer-events: none;
-        background: radial-gradient(circle at var(--x) var(--y), transparent var(--s), rgba(0, 209, 255, 0.05) calc(var(--s) + 100px), transparent calc(var(--s) + 300px));
-        opacity: var(--o);
-        z-index: 1;
+        background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent var(--s, 0px), rgba(0, 209, 255, 0.3) calc(var(--s, 0px) + 100px), transparent calc(var(--s, 0px) + 500px));
+        opacity: var(--o, 0);
+        z-index: 9999;
+        mix-blend-mode: screen;
+        transition: opacity 0.5s ease-out;
       }
 
       /* More visible wave overlay on mobile/touch devices */
       @media (hover: none) and (pointer: coarse) {
         .wave-overlay {
-          background: radial-gradient(circle at var(--x) var(--y), transparent var(--s), rgba(0, 209, 255, 0.25) calc(var(--s) + 100px), transparent calc(var(--s) + 300px));
+          background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent var(--s, 0px), rgba(0, 209, 255, 0.4) calc(var(--s, 0px) + 150px), transparent calc(var(--s, 0px) + 600px));
         }
-      }
-
-      /* Email unlock animation */
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-      .email-link.unlocking i {
-        animation: spin 0.5s ease;
       }
 
       /* Underwater plant sway animation */
@@ -331,21 +314,74 @@
       </div>
     </div>
 
-    <svg style="display: none">
+    <svg width="0" height="0" viewBox="0 0 100 100" style="position: absolute; left: -9999px">
       <defs>
-        <filter id="ripple">
-          <feTurbulence id="turb" type="fractalNoise" baseFrequency="0" numOctaves="2" result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" id="disp" />
+        <filter id="ripple" x="-20%" y="-20%" width="140%" height="140%" filterUnits="objectBoundingBox" primitiveUnits="userSpaceOnUse">
+          <feTurbulence id="turb" type="turbulence" baseFrequency="0" numOctaves="3" seed="1" result="noise" />
+          <feDisplacementMap id="disp" in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" />
         </filter>
       </defs>
     </svg>
 
     <script>
       const cursor = document.getElementById('cursor');
-      const turb = document.getElementById('turb');
-      const disp = document.getElementById('disp');
       const card = document.getElementById('card');
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+      // Feature detection for SVG filters
+      const supportsSvgFilters = (() => {
+        try {
+          // Create a temporary SVG with a filter
+          const svgNS = 'http://www.w3.org/2000/svg';
+          const svg = document.createElementNS(svgNS, 'svg');
+          svg.setAttribute('width', '0');
+          svg.setAttribute('height', '0');
+          svg.style.position = 'absolute';
+          svg.style.left = '-9999px';
+
+          const defs = document.createElementNS(svgNS, 'defs');
+          const filter = document.createElementNS(svgNS, 'filter');
+          filter.setAttribute('id', 'svg-filter-test');
+
+          const feGaussianBlur = document.createElementNS(svgNS, 'feGaussianBlur');
+          feGaussianBlur.setAttribute('stdDeviation', '2');
+          filter.appendChild(feGaussianBlur);
+          defs.appendChild(filter);
+          svg.appendChild(defs);
+
+          // Create a test div that uses the filter
+          const testDiv = document.createElement('div');
+          testDiv.style.width = '10px';
+          testDiv.style.height = '10px';
+          testDiv.style.backgroundColor = 'red';
+          testDiv.style.filter = 'url(#svg-filter-test)';
+
+          document.body.appendChild(svg);
+          document.body.appendChild(testDiv);
+
+          // Check if filter property is recognized
+          const hasFilter = testDiv.style.filter.includes('url');
+
+          // Clean up
+          document.body.removeChild(svg);
+          document.body.removeChild(testDiv);
+
+          return hasFilter;
+        } catch (e) {
+          return false;
+        }
+      })();
+
+      const turb = supportsSvgFilters ? document.getElementById('turb') : null;
+      const disp = supportsSvgFilters ? document.getElementById('disp') : null;
+
+      // If SVG filters are not supported, remove the filter from #app
+      if (!supportsSvgFilters) {
+        const app = document.getElementById('app');
+        if (app) {
+          app.style.filter = 'none';
+        }
+      }
 
       // Card entrance animation
       setTimeout(() => {
@@ -394,16 +430,6 @@
           };
           const local = decode(enc1);
           const domain = decode(enc2);
-          // Visual feedback
-          const icon = el.querySelector('ph-icon');
-          if (icon) {
-            el.classList.add('unlocking');
-            icon.style.color = 'var(--cyan)';
-            setTimeout(() => {
-              icon.style.color = '';
-              el.classList.remove('unlocking');
-            }, 500);
-          }
           // Open mailto
           window.location.href = `mailto:${local}@${domain}`;
         });
@@ -421,6 +447,9 @@
         ripple.el.className = 'wave-overlay';
         ripple.el.style.setProperty('--x', clientX + 'px');
         ripple.el.style.setProperty('--y', clientY + 'px');
+        // Set initial values for CSS custom properties
+        ripple.el.style.setProperty('--s', '0px');
+        ripple.el.style.setProperty('--o', '0');
         document.body.appendChild(ripple.el);
         ripples.push(ripple);
 
@@ -431,7 +460,7 @@
 
       const animateRipples = (time) => {
         if (ripples.length === 0) {
-          if (!isTouchDevice) {
+          if (!isTouchDevice && turb && disp) {
             turb.setAttribute('baseFrequency', '0');
             disp.setAttribute('scale', '0');
           }
@@ -452,9 +481,9 @@
             // Custom wave intensity: quick rise to peak, then slow fade
             // Peak at 30% of duration, then quadratic fade
             const waveIntensity = p < 0.3 ? p / 0.3 : 1 - Math.pow((p - 0.3) / 0.7, 2);
-            const freq = 0.005 + waveIntensity * 0.002;
-            // Scale follows wave intensity with additional fade
-            const scale = waveIntensity * 120 * fade;
+            const freq = 0.005 + waveIntensity * 0.0015; // Reduced from 0.002 for less dramatic effect
+            // Scale follows wave intensity with additional fade - reduced for less dramatic effect
+            const scale = waveIntensity * 90 * fade; // Reduced from 120
 
             // Adjust radius and opacity for touch devices
             const maxRadius = isTouchDevice ? Math.min(2500, Math.max(window.innerWidth, window.innerHeight) * 0.8) : 2500;
@@ -470,9 +499,9 @@
           }
         }
 
-        if (!isTouchDevice) {
+        if (!isTouchDevice && turb && disp) {
           turb.setAttribute('baseFrequency', totalFreq);
-          disp.setAttribute('scale', Math.min(totalScale, 200));
+          disp.setAttribute('scale', Math.min(totalScale, 150)); // Reduced from 200 for less dramatic effect
         }
 
         requestAnimationFrame(animateRipples);
@@ -490,170 +519,91 @@
         }
       });
 
-      // Device tilt effect with dynamic bounds and underwater plant sway
+      // Automatic underwater plant sway animation (no device sensor)
       (function () {
         const card = document.getElementById('card');
         if (!card) return;
 
-        // Smoothing factor (0 = no smoothing, 1 = no change) - lower = smoother
-        const SMOOTHING = 0.15;
-        // Maximum tilt angle to consider (degrees)
-        const MAX_TILT = 30;
-        // Maximum rotation angle (degrees)
-        const MAX_ROTATION = 10;
-        // Minimum margin from viewport edges (pixels)
-        const MIN_MARGIN = 20;
         // Animation frame ID
         let animationFrame = null;
+        let startTime = null;
 
-        let smoothedGamma = 0;
-        let smoothedBeta = 0;
-        let targetGamma = 0;
-        let targetBeta = 0;
-        let maxTranslateX = 20; // fallback
-        let maxTranslateY = 20;
+        // Sway parameters
+        const SWAY_SPEED = 0.001;
+        const SWAY_ROTATION_AMPLITUDE = 1.5; // degrees - reduced from 2 for subtlety
+        const SWAY_TRANSLATION_AMPLITUDE = 0.5; // pixels - very subtle translation
+        const SWAY_RANDOM_INTERVAL = 3000; // ms
 
-        // Underwater plant sway variables
-        let swayOffsetX = 0;
-        let swayOffsetY = 0;
-        let swayRotateX = 0;
-        let swayRotateY = 0;
         let swayTime = 0;
-        const SWAY_SPEED = 0.001; // How fast the sway changes
-        const SWAY_AMPLITUDE = 0; // No translation offset
-        const SWAY_ROTATION_AMPLITUDE = 2; // Stronger rotation offset in degrees
-        const SWAY_RANDOM_INTERVAL = 3000; // How often to generate new random targets (ms)
         let lastRandomTime = 0;
-        let targetSwayX = 0;
-        let targetSwayY = 0;
         let targetSwayRotX = 0;
         let targetSwayRotY = 0;
+        let targetSwayX = 0;
+        let targetSwayY = 0;
+        let currentSwayRotX = 0;
+        let currentSwayRotY = 0;
+        let currentSwayX = 0;
+        let currentSwayY = 0;
 
-        // Compute maximum translation based on card size and viewport
-        const computeMaxTranslation = () => {
-          const rect = card.getBoundingClientRect();
-          const viewportWidth = window.innerWidth;
-          const viewportHeight = window.innerHeight;
-
-          // Distance from card center to viewport edges (card is centered)
-          const horizontalSpace = (viewportWidth - rect.width) / 2;
-          const verticalSpace = (viewportHeight - rect.height) / 2;
-
-          // Subtract minimum margin
-          const safeX = Math.max(0, horizontalSpace - MIN_MARGIN);
-          const safeY = Math.max(0, verticalSpace - MIN_MARGIN);
-
-          // Limit to a reasonable maximum so tilt doesn't move too far on large screens
-          const MAX_LIMIT = 15;
-          return {
-            maxX: Math.min(safeX, MAX_LIMIT),
-            maxY: Math.min(safeY, MAX_LIMIT),
-          };
+        // Generate new random targets
+        const generateRandomTargets = () => {
+          targetSwayRotX = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
+          targetSwayRotY = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
+          targetSwayX = (Math.random() - 0.5) * 2 * SWAY_TRANSLATION_AMPLITUDE;
+          targetSwayY = (Math.random() - 0.5) * 2 * SWAY_TRANSLATION_AMPLITUDE;
         };
 
-        // Update max translation values
-        const updateMaxTranslation = () => {
-          const { maxX, maxY } = computeMaxTranslation();
-          maxTranslateX = maxX;
-          maxTranslateY = maxY;
-        };
-
-        // Update target values on device orientation
-        const handleOrientation = (event) => {
-          // gamma: left/right tilt ( -90 to 90 )
-          // beta: front/back tilt ( -180 to 180 )
-          const gamma = event.gamma !== null ? event.gamma : 0;
-          const beta = event.beta !== null ? event.beta : 0;
-
-          // Clamp to max tilt
-          targetGamma = Math.max(-MAX_TILT, Math.min(MAX_TILT, gamma));
-          targetBeta = Math.max(-MAX_TILT, Math.min(MAX_TILT, beta));
-        };
-
-        // Smoothing function (exponential moving average)
-        const smooth = () => {
-          smoothedGamma = smoothedGamma + (targetGamma - smoothedGamma) * SMOOTHING;
-          smoothedBeta = smoothedBeta + (targetBeta - smoothedBeta) * SMOOTHING;
-        };
-
-        // Update underwater plant sway values
+        // Update sway values
         const updateSway = (time) => {
-          swayTime += SWAY_SPEED;
+          if (!startTime) startTime = time;
+          swayTime = (time - startTime) * SWAY_SPEED;
 
           // Generate new random targets periodically
           if (time - lastRandomTime > SWAY_RANDOM_INTERVAL) {
             lastRandomTime = time;
-            targetSwayX = (Math.random() - 0.5) * 2 * SWAY_AMPLITUDE;
-            targetSwayY = (Math.random() - 0.5) * 2 * SWAY_AMPLITUDE;
-            targetSwayRotX = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
-            targetSwayRotY = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
+            generateRandomTargets();
           }
 
-          // Smoothly interpolate towards targets
+          // Smooth interpolation towards targets
           const swaySmoothing = 0.02;
-          swayOffsetX += (targetSwayX - swayOffsetX) * swaySmoothing;
-          swayOffsetY += (targetSwayY - swayOffsetY) * swaySmoothing;
-          swayRotateX += (targetSwayRotX - swayRotateX) * swaySmoothing;
-          swayRotateY += (targetSwayRotY - swayRotateY) * swaySmoothing;
+          currentSwayX += (targetSwayX - currentSwayX) * swaySmoothing;
+          currentSwayY += (targetSwayY - currentSwayY) * swaySmoothing;
+          currentSwayRotX += (targetSwayRotX - currentSwayRotX) * swaySmoothing;
+          currentSwayRotY += (targetSwayRotY - currentSwayRotY) * swaySmoothing;
 
           // Add subtle periodic movement using sine waves for organic feel
-          const waveX = 0; // No translation wave
-          const waveY = 0;
-          const waveRotX = Math.sin(swayTime * 0.3) * 0.3;
-          const waveRotY = Math.cos(swayTime * 0.9) * 0.3;
+          const waveRotX = Math.sin(swayTime * 0.3) * 0.2;
+          const waveRotY = Math.cos(swayTime * 0.9) * 0.2;
+          const waveX = Math.sin(swayTime * 0.5) * 0.1;
+          const waveY = Math.cos(swayTime * 0.7) * 0.1;
 
           return {
-            x: swayOffsetX + waveX,
-            y: swayOffsetY + waveY,
-            rotX: swayRotateX + waveRotX,
-            rotY: swayRotateY + waveRotY,
+            x: currentSwayX + waveX,
+            y: currentSwayY + waveY,
+            rotX: currentSwayRotX + waveRotX,
+            rotY: currentSwayRotY + waveRotY,
           };
         };
 
-        // Apply transform to card with tilt and underwater sway
-        const applyTilt = (time) => {
-          smooth();
-
-          // Calculate sway offsets
+        // Apply transform to card with sway
+        const applySway = (time) => {
           const sway = updateSway(time);
 
-          // Map tilt to translation using dynamic max values
-          const translateX = (smoothedGamma / MAX_TILT) * maxTranslateX;
-          const translateY = (smoothedBeta / MAX_TILT) * maxTranslateY;
-
-          // Map tilt to rotation
-          const rotateY = (smoothedGamma / MAX_TILT) * MAX_ROTATION;
-          const rotateX = (smoothedBeta / MAX_TILT) * MAX_ROTATION;
-
-          // Combine tilt with sway offsets
-          const totalTranslateX = translateX + sway.x;
-          const totalTranslateY = translateY + sway.y;
-          const totalRotateX = rotateX + sway.rotX;
-          const totalRotateY = rotateY + sway.rotY;
-
-          // Apply transform with translation and rotation (order: translate then rotate for natural feel)
-          card.style.transform = `translate(${totalTranslateX}px, ${totalTranslateY}px) rotateX(${totalRotateX}deg) rotateY(${totalRotateY}deg)`;
+          // Apply transform with translation and rotation
+          card.style.transform = `translate(${sway.x}px, ${sway.y}px) rotateX(${sway.rotX}deg) rotateY(${sway.rotY}deg)`;
 
           // Continue animation
-          animationFrame = requestAnimationFrame(applyTilt);
+          animationFrame = requestAnimationFrame(applySway);
         };
 
-        // Start tilt animation after card entrance
+        // Start sway animation after card entrance
         setTimeout(() => {
-          updateMaxTranslation();
+          startTime = performance.now();
+          lastRandomTime = startTime;
+          generateRandomTargets();
           if (animationFrame) cancelAnimationFrame(animationFrame);
-          animationFrame = requestAnimationFrame(applyTilt);
-        }, 1000); // Wait a bit longer after card entrance
-
-        // Add device orientation listener if supported
-        if (window.DeviceOrientationEvent) {
-          window.addEventListener('deviceorientation', handleOrientation);
-        }
-
-        // Update max translation on resize
-        window.addEventListener('resize', () => {
-          updateMaxTranslation();
-        });
+          animationFrame = requestAnimationFrame(applySway);
+        }, 1000);
 
         // Cleanup on page hide
         window.addEventListener('visibilitychange', () => {
@@ -664,7 +614,7 @@
             }
           } else {
             if (!animationFrame) {
-              animationFrame = requestAnimationFrame(applyTilt);
+              animationFrame = requestAnimationFrame(applySway);
             }
           }
         });
