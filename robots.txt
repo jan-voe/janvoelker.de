@@ -1,0 +1,10 @@
+# robots.txt for janvoelker.de
+# Last updated: 2026-04-27
+
+User-agent: *
+Allow: /
+
+# Disallow non‑existent admin areas (prevent 404s)
+Disallow: /admin/
+Disallow: /private/
+Disallow: /cgi-bin/
