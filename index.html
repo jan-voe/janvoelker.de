@@ -4,19 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="index, follow" />
-    <title>Jan Völker | UX Design</title>
-    <meta name="description" content="Jan Völker - UX Designer @ GOT BAG. Designing digital experiences that ripple through the physical world." />
-    <meta property="og:title" content="Jan Völker | UX Design" />
+    <title>Jan Völker · UX Design</title>
+    <meta name="description" content="Jan Völker - UX Designer @ GOT BAG in Mainz. Designing digital experiences that ripple through the physical world." />
+    <meta property="og:title" content="Jan Völker · UX Design" />
     <meta property="og:description" content="UX Designer @ GOT BAG. Designing digital experiences that ripple through the physical world." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://janvoelker.de" />
     <meta property="og:image" content="https://janvoelker.de/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="Jan Völker | UX Design" />
+    <meta property="og:site_name" content="Jan Völker · UX Design" />
     <meta property="og:locale" content="de_DE" />
     <!-- Twitter Card -->
-    <meta name="twitter:title" content="Jan Völker | UX Design" />
+    <meta name="twitter:title" content="Jan Völker · UX Design" />
     <meta name="twitter:description" content="UX Designer @ GOT BAG. Designing digital experiences that ripple through the physical world." />
     <meta name="twitter:image" content="https://janvoelker.de/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -103,7 +103,7 @@
         align-items: center;
         justify-content: center;
         filter: url(#ripple);
-        padding: 20px;
+        padding: clamp(2rem, 5vw, 4rem);
         box-sizing: border-box;
         perspective: 1000px;
       }
@@ -247,13 +247,13 @@
           transform: translate(0, 0) rotate(0deg);
         }
         25% {
-          transform: translate(0.5px, -0.3px) rotate(0.1deg);
+          transform: translate(1.5px, -0.9px) rotate(0.4deg);
         }
         50% {
-          transform: translate(-0.3px, 0.5px) rotate(-0.05deg);
+          transform: translate(-0.9px, 1.5px) rotate(-0.2deg);
         }
         75% {
-          transform: translate(0.2px, 0.4px) rotate(0.07deg);
+          transform: translate(0.6px, 1.2px) rotate(0.28deg);
         }
       }
     </style>
@@ -530,9 +530,9 @@
 
         // Sway parameters
         const SWAY_SPEED = 0.001;
-        const SWAY_ROTATION_AMPLITUDE = 1.5; // degrees - reduced from 2 for subtlety
-        const SWAY_TRANSLATION_AMPLITUDE = 0.5; // pixels - very subtle translation
-        const SWAY_RANDOM_INTERVAL = 3000; // ms
+        const SWAY_ROTATION_AMPLITUDE = 3.5; // degrees - slightly reduced for smoother motion
+        const SWAY_TRANSLATION_AMPLITUDE = 1.5; // pixels - reduced translation jerkiness
+        const SWAY_RANDOM_INTERVAL = 8000; // ms - ensure target changes less frequently
 
         let swayTime = 0;
         let lastRandomTime = 0;
@@ -565,17 +565,17 @@
           }
 
           // Smooth interpolation towards targets
-          const swaySmoothing = 0.02;
+          const swaySmoothing = 0.01;
           currentSwayX += (targetSwayX - currentSwayX) * swaySmoothing;
           currentSwayY += (targetSwayY - currentSwayY) * swaySmoothing;
           currentSwayRotX += (targetSwayRotX - currentSwayRotX) * swaySmoothing;
           currentSwayRotY += (targetSwayRotY - currentSwayRotY) * swaySmoothing;
 
           // Add subtle periodic movement using sine waves for organic feel
-          const waveRotX = Math.sin(swayTime * 0.3) * 0.2;
-          const waveRotY = Math.cos(swayTime * 0.9) * 0.2;
-          const waveX = Math.sin(swayTime * 0.5) * 0.1;
-          const waveY = Math.cos(swayTime * 0.7) * 0.1;
+          const waveRotX = Math.sin(swayTime * 0.3) * 0.4;
+          const waveRotY = Math.cos(swayTime * 0.9) * 0.4;
+          const waveX = Math.sin(swayTime * 0.5) * 0.2;
+          const waveY = Math.cos(swayTime * 0.7) * 0.2;
 
           return {
             x: currentSwayX + waveX,
