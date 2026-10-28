@@ -49,33 +49,39 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: none;
       }
 
-      /* Hide custom cursor on mobile/touch */
-      @media (hover: none) and (pointer: coarse) {
-        body {
-          cursor: auto;
-        }
-        #cursor {
-          display: none;
-        }
-      }
-
+      /* The custom cursor is opt-in: #cursor stays hidden and the native pointer
+         stays visible until JS confirms a mouse-like device. That way nothing
+         depends on the script running. */
       #cursor {
+        display: none;
         width: 20px;
         height: 20px;
         background: white;
         border-radius: 50%;
         position: fixed;
+        top: 0;
+        left: 0;
         pointer-events: none;
         z-index: 1000;
         mix-blend-mode: difference;
         transform: translate(-50%, -50%);
+        opacity: 0;
+        will-change: transform;
         transition:
           width 0.3s ease,
           height 0.3s ease,
-          background 0.3s ease;
+          background 0.3s ease,
+          opacity 0.2s ease;
+      }
+
+      html.custom-cursor body {
+        cursor: none;
+      }
+
+      html.custom-cursor #cursor {
+        display: block;
       }
 
       #cursor.active {
@@ -102,10 +108,16 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        filter: url(#ripple);
         padding: clamp(2rem, 5vw, 4rem);
         box-sizing: border-box;
         perspective: 1000px;
+      }
+
+      /* The SVG ripple filter re-rasterises the whole #app subtree on every frame
+         the card moves, so it is only attached while a ripple is actually running
+         (class toggled from JS). Without JS, no filter is ever applied. */
+      #app.rippling {
+        filter: url(#ripple);
       }
 
       .card {
@@ -119,17 +131,37 @@
         max-width: 800px;
         width: 100%;
         box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
-        transition: opacity 1s ease;
-        opacity: 0;
-        transform: translateY(30px);
-        will-change: transform, opacity;
+        animation: card-in 900ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+        will-change: transform;
         transform-style: preserve-3d;
         position: relative;
       }
 
-      .card.visible {
-        opacity: 1;
-        transform: translateY(0);
+      /* Entrance uses transform only, never opacity: the content is painted from
+         the first frame, so FCP/LCP are measurable and visitors without JS still
+         see everything. `backwards` (not `both`) matters: a persistent fill would
+         keep overriding the inline transform the sway animation writes later. */
+      @keyframes card-in {
+        from {
+          transform: translateY(28px);
+        }
+        to {
+          transform: translateY(0);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card {
+          animation: none;
+        }
+        #cursor,
+        .social-link,
+        .wave-overlay {
+          transition: none;
+        }
+        .social-link:hover {
+          transform: none;
+        }
       }
 
       h1 {
@@ -302,7 +334,10 @@
     <script>
       const cursor = document.getElementById('cursor');
       const card = document.getElementById('card');
+      const app = document.getElementById('app');
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const canUseCustomCursor = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
       // Feature detection for SVG filters
       const supportsSvgFilters = (() => {
@@ -351,31 +386,30 @@
       const turb = supportsSvgFilters ? document.getElementById('turb') : null;
       const disp = supportsSvgFilters ? document.getElementById('disp') : null;
 
-      // If SVG filters are not supported, remove the filter from #app
-      if (!supportsSvgFilters) {
-        const app = document.getElementById('app');
-        if (app) {
-          app.style.filter = 'none';
-        }
-      }
-
-      // Card entrance animation
-      setTimeout(() => {
-        card.classList.add('visible');
-      }, 300);
+      // The filter is attached to #app only while a ripple is on screen.
+      const setRippleFilter = (on) => {
+        if (!app) return;
+        app.classList.toggle('rippling', on && supportsSvgFilters);
+      };
 
       document.addEventListener('mousemove', (e) => {
+        if (!canUseCustomCursor) return;
+        // Swapping the pointer only after real mouse movement keeps the native
+        // cursor visible until we know the custom one can follow it.
+        if (!document.documentElement.classList.contains('custom-cursor')) {
+          document.documentElement.classList.add('custom-cursor');
+        }
         cursor.style.left = e.clientX + 'px';
         cursor.style.top = e.clientY + 'px';
         cursor.style.opacity = '1';
       });
 
       document.addEventListener('mouseleave', () => {
-        cursor.style.opacity = '0';
+        if (canUseCustomCursor) cursor.style.opacity = '0';
       });
 
       document.addEventListener('mouseenter', () => {
-        cursor.style.opacity = '1';
+        if (canUseCustomCursor) cursor.style.opacity = '1';
       });
 
       // Cursor hover effect
@@ -428,6 +462,7 @@
         ripple.el.style.setProperty('--o', '0');
         document.body.appendChild(ripple.el);
         ripples.push(ripple);
+        setRippleFilter(true);
 
         if (ripples.length === 1) {
           requestAnimationFrame(animateRipples);
@@ -440,6 +475,7 @@
             turb.setAttribute('baseFrequency', '0');
             disp.setAttribute('scale', '0');
           }
+          setRippleFilter(false);
           return;
         }
 
@@ -472,6 +508,15 @@
           } else {
             r.el.remove();
             ripples.splice(i, 1);
+            // Release the filter on the same frame the last ripple disappears,
+            // rather than waiting for one more animation frame to come around.
+            if (ripples.length === 0) {
+              if (!isTouchDevice && turb && disp) {
+                turb.setAttribute('baseFrequency', '0');
+                disp.setAttribute('scale', '0');
+              }
+              setRippleFilter(false);
+            }
           }
         }
 
@@ -572,28 +617,42 @@
           animationFrame = requestAnimationFrame(applySway);
         };
 
-        // Start sway animation after card entrance
-        setTimeout(() => {
+        const stopSway = () => {
+          if (animationFrame) {
+            cancelAnimationFrame(animationFrame);
+            animationFrame = null;
+          }
+          card.style.transform = '';
+        };
+
+        const startSway = () => {
+          if (animationFrame || prefersReducedMotion.matches) return;
           startTime = performance.now();
           lastRandomTime = startTime;
           generateRandomTargets();
-          if (animationFrame) cancelAnimationFrame(animationFrame);
           animationFrame = requestAnimationFrame(applySway);
-        }, 1000);
+        };
 
-        // Cleanup on page hide
+        // Wait for the 900ms CSS entrance animation to finish before taking over
+        // the card's transform, otherwise the animation would win over the inline style.
+        setTimeout(startSway, 1100);
+
+        // Don't animate in a background tab.
         window.addEventListener('visibilitychange', () => {
-          if (document.hidden) {
-            if (animationFrame) {
-              cancelAnimationFrame(animationFrame);
-              animationFrame = null;
-            }
-          } else {
-            if (!animationFrame) {
-              animationFrame = requestAnimationFrame(applySway);
-            }
-          }
+          if (document.hidden) stopSway();
+          else startSway();
         });
+
+        // Follow the OS "reduce motion" setting, now and if it changes at runtime.
+        const onMotionPreferenceChange = (event) => {
+          if (event.matches) stopSway();
+          else startSway();
+        };
+        if (prefersReducedMotion.addEventListener) {
+          prefersReducedMotion.addEventListener('change', onMotionPreferenceChange);
+        } else if (prefersReducedMotion.addListener) {
+          prefersReducedMotion.addListener(onMotionPreferenceChange);
+        }
       })();
     </script>
   </body>
