@@ -250,7 +250,12 @@
          up and faded out, so the work stays on the compositor: no repaint of the
          page, no SVG filter (feDisplacementMap/feTurbulence is unreliable and
          expensive on mobile GPUs). Three rings per click, staggered, read as a
-         wave travelling outwards instead of a pattern that zooms in and out. */
+         wave travelling outwards instead of a pattern that zooms in and out.
+
+         No mix-blend-mode: on this dark background `screen` and plain alpha are
+         visually almost the same (measured (8,140,176) vs (3,135,171) over the
+         card), but `screen` forces a backdrop copy over the whole layer area,
+         which is what made full-window clicks stutter. */
       .wave-ring {
         position: fixed;
         left: var(--x, 50%);
@@ -269,7 +274,6 @@
           rgba(0, 209, 255, 0.16) 52%,
           transparent 62%
         );
-        mix-blend-mode: screen;
         opacity: 0;
         transform: scale(0.02);
         will-change: transform, opacity;
@@ -391,21 +395,20 @@
         });
       });
 
-      // Three rings per click, staggered: the front of each one travels outwards
+      // Two rings per click, staggered: the front of each one travels outwards
       // while it fades, so the eye reads a wave rolling away from the pointer.
       // Durations are deliberately different so the rings never move as a block.
       const WAVE_RINGS = [
-        { delay: 0, duration: 2200, size: 200, opacity: 0.5 },
-        { delay: 320, duration: 2500, size: 175, opacity: 0.34 },
-        { delay: 650, duration: 2800, size: 150, opacity: 0.22 },
+        { delay: 0, duration: 2200, size: 170, opacity: 0.5 },
+        { delay: 320, duration: 2500, size: 150, opacity: 0.34 },
       ];
 
-      // Every ring is a full-size composited layer (up to 200vmax square) with
-      // mix-blend-mode, so dozens of them at once can exhaust GPU memory and take
-      // the tab down. Rapid clicking used to spawn 60+; the oldest rings are now
-      // dropped as soon as the cap is reached. They are the biggest and faintest
-      // by then, so the wave still reads as starting at the pointer.
-      const MAX_LIVE_RINGS = 12;
+      // Every ring is a full-size composited layer (up to 170vmax square), so
+      // dozens of them at once can exhaust GPU memory and take the tab down.
+      // Rapid clicking used to spawn 60+; the oldest rings are now dropped as
+      // soon as the cap is reached. They are the biggest and faintest by then,
+      // so the wave still reads as starting at the pointer.
+      const MAX_LIVE_RINGS = 8;
       const liveRings = new Set();
 
       const triggerWave = (clientX, clientY) => {
@@ -458,20 +461,23 @@
             // a pulse rather than a rolling wave.
             easing: 'linear',
           });
+          // The ring is fully faded out at 70 % of its travel, not at the end:
+          // that shortens the time several overlapping rings are on screen while
+          // still letting the front reach the edge of the viewport.
           const fade = el.animate(
-            [{ opacity: 0 }, { opacity: Math.min(ring.opacity * boost, 1), offset: 0.1 }, { opacity: 0 }],
+            [{ opacity: 0 }, { opacity: Math.min(ring.opacity * boost, 1), offset: 0.08 }, { opacity: 0, offset: 0.7 }],
             { ...timing, easing: 'linear' }
           );
 
-          // Remove the ring when the fade ends, with a timer as a safety net:
-          // a finish event never arrives if the tab stops producing frames.
+          // Remove the ring as soon as it is invisible, with a timer as a safety
+          // net: a finish event never arrives if the tab stops producing frames.
           const cleanup = () => {
             liveRings.delete(el);
             if (el.isConnected) el.remove();
           };
           fade.onfinish = cleanup;
           fade.oncancel = cleanup;
-          setTimeout(cleanup, duration + ring.delay + 100);
+          setTimeout(cleanup, ring.delay + duration * 0.72);
         }
       };
 

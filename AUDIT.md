@@ -139,10 +139,18 @@ At 60 rings that is roughly 1.5 GB of layer memory plus the backdrop copies the
 blend mode needs, so Chromium drops the GPU process and the page goes white. It
 is not a JS error, which is why nothing appears in the console.
 
-`MAX_LIVE_RINGS = 12` now drops the oldest ring as soon as the cap is reached
-(FIFO). Those are the largest and faintest, and the newest click stays visible.
-Stress test with 60 clicks as fast as possible: max 12 rings at once, 0 left
-after 4.4 s, no crash, no page errors.
+Fixed in three steps, all measured at 1512×982 (full window on a 14" MacBook):
+
+| Change | Effect |
+| --- | --- |
+| dropped `mix-blend-mode: screen` | removes the backdrop copy over the whole layer area; visually near-identical here (`screen` gives `(8,140,176)` over the card, plain alpha `(3,135,171)`) |
+| ring sizes 200/175/150 → 170/150/130 vmax | −28 % layer area, and the front still reaches the viewport corner (900 px of 901 px) |
+| two rings per click instead of three | 12 MP per click instead of 27 MP |
+| fade complete at 70 % of the travel, element removed at 72 % | overlapping time down by a third |
+| `MAX_LIVE_RINGS` 12 → 8 (FIFO) | caps the worst case, oldest ring is dropped first |
+
+Stress test (30–40 clicks as fast as possible): max 8 rings at once, everything
+gone after ~3.3 s, no crash, no page errors, 2 rings per tap on mobile.
 
 ## Summary
 
