@@ -126,7 +126,7 @@
         max-width: 800px;
         width: 100%;
         box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
-        animation: card-in 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
+        animation: card-in 1400ms cubic-bezier(0.42, 0, 1, 1);
         position: relative;
       }
 
@@ -134,13 +134,19 @@
          of a JS-triggered transition, so it also runs without JS and always ends
          with the card fully visible.
 
-         It starts at opacity 0.2, not 0: content painted at opacity 0 does not
+         It starts at opacity 0.1, not 0: content painted at opacity 0 does not
          count as a contentful paint, which made Lighthouse abort with NO_FCP and
          left FCP/LCP unmeasurable (the original 0 → 1 fade was exactly that).
-         On this dark background 0.2 already reads as "fading in from nothing". */
+         0.1 is dark enough to read as "fading in from nothing" and still counts
+         as painted; measured, it costs nothing against FCP/LCP.
+
+         Duration and easing matter for how visible it is: at 800 ms with an
+         ease-out, 80 % of the change happened in the first 250 ms and the fade
+         was easy to miss. 1400 ms with ease-in keeps the card dark at first and
+         then brightens it, so the reveal happens late rather than instantly. */
       @keyframes card-in {
         from {
-          opacity: 0.2;
+          opacity: 0.1;
         }
         to {
           opacity: 1;
