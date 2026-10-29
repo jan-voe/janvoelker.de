@@ -11,9 +11,10 @@ Single static page, no build step, published straight from this repo via **GitHu
 ```
 .
 ├── index.html        # the whole site: <head>/SEO, CSS in <style>, JS in <script>
-├── og-image.png      # 1200×630 social preview image (1.6 MB)
+├── og-image.jpg      # 1200×630 social preview image (113 KB)
 ├── CNAME             # www.janvoelker.de → GitHub Pages custom domain
-├── robots.txt        # crawler rules
+├── robots.txt        # crawler rules, points at the sitemap
+├── sitemap.xml       # single-URL sitemap
 ├── scripts/serve.mjs # local preview server (no dependencies)
 ├── package.json      # convenience scripts only
 └── .editorconfig     # 2 spaces, LF, UTF-8
@@ -40,7 +41,7 @@ PORT=3000 npm run dev    # different port
 ```
 
 Then edit `index.html` and reload the browser. Serving the repo root (not a
-subfolder) keeps paths identical to production, so `/og-image.png` etc. work.
+subfolder) keeps paths identical to production, so `/og-image.jpg` etc. work.
 
 ## Publishing
 
@@ -73,10 +74,10 @@ Noted for later, agreed 2026-10-29:
 
 1. **Favicon** (`/favicon.ico` currently 404s on every visit, costs a 9 KB error
    page and keeps Best Practices at 96 instead of 100). Also `apple-touch-icon`.
-2. **Compress `og-image.png`** (1.6 MB; a JPEG at quality 85 should land around
-   200 KB with no visible difference at 1200×630).
-3. **`sitemap.xml`** plus a `Sitemap:` line in `robots.txt`, and `og:locale`
-   `de_DE` → `en_US` (the content is English).
+
+Done from that list: the OG image is a 113 KB JPEG instead of a 1.6 MB PNG, there
+is a `sitemap.xml` with a `Sitemap:` line in `robots.txt`, and `og:locale` is
+`en_US` to match the English content.
 
 Open design decisions (no code needed to start):
 

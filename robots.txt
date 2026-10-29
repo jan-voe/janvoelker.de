@@ -8,3 +8,5 @@ Allow: /
 Disallow: /admin/
 Disallow: /private/
 Disallow: /cgi-bin/
+
+Sitemap: https://www.janvoelker.de/sitemap.xml

@@ -110,16 +110,29 @@ thing that needed a pause control to satisfy WCAG 2.2.2.
 
 HTML is now 17,025 bytes (5.4 KB gzip), down from 24,268 before the fix passes.
 
+## Fix pass 5 — applied 2026-10-29 (OG image, sitemap, locale)
+
+- `og-image.png` (1.6 MB) was replaced by `og-image.jpg`, 1200×630 at quality 90:
+  **113 KB**, measured RMS difference 3.4 of 255 against the original, i.e. not
+  visible at that size. `og:image`/`twitter:image` point at the new file, and
+  `og:image:alt` plus `og:image:type` were added.
+- `sitemap.xml` added (single URL, `lastmod` 2026-10-29) and referenced from
+  `robots.txt` with a `Sitemap:` line.
+- `og:locale` changed from `de_DE` to `en_US`. The page language is English and
+  `og:locale` describes the content, not the author's location; the location is
+  already covered by the `geo.*` tags and the JSON-LD `address`. `en_DE` would be
+  syntactically valid but is not a locale scrapers know.
+
 ## Summary
 
 | Area | Verdict | Notes |
 | --- | --- | --- |
-| Speed (bytes) | **Very good** | ~6.6 KB HTML (gzip) + 25 KB font, 5 requests, TTFB 147 ms |
+| Speed (bytes) | **Very good** | ~5.4 KB HTML (gzip) + 25 KB font, 5 requests, TTFB 147 ms |
 | Speed (CPU) | **Good** | No SVG filter, no continuous animation; nothing runs while idle |
 | Measurability | **Fixed** | Lighthouse/PSI now produce scores |
 | Robustness | **Fixed** | Page renders without JS, native cursor preserved |
 | SEO basics | **Good** | Title, description, canonical, OG/Twitter, JSON-LD, robots, lang, mobile-friendly |
-| SEO details | **Needs work** | No sitemap, no favicon, `og:locale` de_DE on an English page (the www mismatch is fixed) |
+| SEO details | **Mostly done** | Sitemap, OG image size and `og:locale` fixed; only the favicon is missing |
 | Accessibility | **Contrast still fails** | 3 contrast failures remain; axe is otherwise clean, motion respects the OS setting |
 
 ## 1. Performance
@@ -317,8 +330,8 @@ Other:
 3. Fix contrast: tagline ~0.4 → 0.62 opacity minimum, icons 0.3 → 0.42, drop the
    "CLICK TO CREATE AN IMPACT" hint to real text colour or remove it.
 4. ~~Unify the host to `www.` in canonical/OG tags.~~ **Done** (2026-10-29).
-5. Add `sitemap.xml`, a favicon (`/favicon.ico` currently 404s on every visit) and
-   compress `og-image.png` (1.6 MB), set `og:locale = en_US`.
+5. ~~Add `sitemap.xml`, compress the OG image, set `og:locale = en_US`.~~ **Done**
+   (fix pass 5). Still missing: a favicon (`/favicon.ico` 404s on every visit).
 6. Drop or cheapen `backdrop-filter: blur(30px)` if idle smoothness matters
    (22 → 48 fps measured), and self-host Sora to remove the render-blocking
    third-party request (918 ms).
