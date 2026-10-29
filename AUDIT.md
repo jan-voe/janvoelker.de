@@ -169,6 +169,21 @@ link tag (`/favicon.ico`, `/apple-touch-icon.png`):
 Result: `/favicon.ico` answers 200 instead of a 9 KB 404 page on every visit, and
 Best Practices went from 96 to **100**. Lighthouse: 99 / 100 / 100 / 100.
 
+## Fix pass 8 — applied 2026-10-29 (contrast)
+
+The three opacity-based colours were raised to the smallest values that satisfy
+WCAG, computed against the composited card background:
+
+| Element | before | after | ratio before → after | required |
+| --- | --- | --- | --- | --- |
+| Tagline | `opacity: 0.4` | **0.5** | 3.51:1 → **4.66:1** | 4.5:1 |
+| Social icons | `opacity: 0.3` | **0.4** | 2.58:1 → **3.51:1** | 3.0:1 |
+| "CLICK TO CREATE AN IMPACT" | `opacity: 0.2` | **0.5** | 1.87:1 → **4.66:1** | 4.5:1 |
+
+The hover-reset for touch devices was raised with the icons. Lighthouse stays at
+99 / 100 / 100 / 100 (it never flagged these, because automated contrast checks
+skip text whose colour comes from an `opacity` below 1).
+
 ## Summary
 
 | Area | Verdict | Notes |
@@ -179,7 +194,7 @@ Best Practices went from 96 to **100**. Lighthouse: 99 / 100 / 100 / 100.
 | Robustness | **Fixed** | Page renders without JS, native cursor preserved |
 | SEO basics | **Good** | Title, description, canonical, OG/Twitter, JSON-LD, robots, lang, mobile-friendly |
 | SEO details | **Done** | Sitemap, OG image size, `og:locale` and a full favicon set |
-| Accessibility | **Contrast still fails** | 3 contrast failures remain; axe is otherwise clean, motion respects the OS setting |
+| Accessibility | **Good** | Contrasts now pass WCAG; axe clean (0 violations), motion respects the OS setting |
 
 ## 1. Performance
 

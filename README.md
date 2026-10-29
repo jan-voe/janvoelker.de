@@ -80,9 +80,11 @@ and `og:locale` set to `en_US`.
 
 Open design decisions (no code needed to start):
 
-- Contrast: tagline 3.5:1, social icons 2.6:1, "CLICK TO CREATE AN IMPACT" 1.9:1.
-- `backdrop-filter: blur(30px)` on the card: the last measurable frame cost.
-- The email link needs JS (`href="#"` plus the Caesar decoder).
+- ~~Contrast~~: done (tagline 4.66:1, icons 3.51:1, impact hint 4.66:1).
+- `backdrop-filter: blur(30px)` on the card: kept after measuring it made no
+  difference to the wave animation (60 fps either way).
+- The email link needs JS (`href="#"` plus the Caesar decoder), deliberately, for
+  spam protection.
 
 ## Known open points
 
