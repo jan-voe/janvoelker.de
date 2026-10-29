@@ -84,7 +84,10 @@ Open design decisions (no code needed to start):
 - `backdrop-filter: blur(30px)` on the card: kept after measuring it made no
   difference to the wave animation (60 fps either way).
 - The email link needs JS (`href="#"` plus the Caesar decoder), deliberately, for
-  spam protection.
+  spam protection. Decided 2026-10-29 to keep it that way: setting `href` on load
+  would put the address in the DOM from the start, and a hover/focus hybrid is
+  more code than the low spam volume justifies. Without JS the button is inert,
+  which was accepted.
 
 ## Known open points
 
