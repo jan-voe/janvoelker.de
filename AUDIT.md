@@ -123,6 +123,27 @@ HTML is now 17,025 bytes (5.4 KB gzip), down from 24,268 before the fix passes.
   already covered by the `geo.*` tags and the JSON-LD `address`. `en_DE` would be
   syntactically valid but is not a locale scrapers know.
 
+## Fix pass 6 — applied 2026-10-29 (ring cap)
+
+Rapid clicking could leave a blank tab in Chromium. Each ring is a full-size
+composited layer (200vmax square, ~6.5 MP on a 1280 px viewport) with
+`mix-blend-mode`, and every click spawns three of them:
+
+| Clicks | Live rings | Layer area at full size |
+| --- | --- | --- |
+| 1 | 3 | ~59 MP |
+| 5 | 15 | ~294 MP |
+| 20 | 60 | **~1,180 MP** |
+
+At 60 rings that is roughly 1.5 GB of layer memory plus the backdrop copies the
+blend mode needs, so Chromium drops the GPU process and the page goes white. It
+is not a JS error, which is why nothing appears in the console.
+
+`MAX_LIVE_RINGS = 12` now drops the oldest ring as soon as the cap is reached
+(FIFO). Those are the largest and faintest, and the newest click stays visible.
+Stress test with 60 clicks as fast as possible: max 12 rings at once, 0 left
+after 4.4 s, no crash, no page errors.
+
 ## Summary
 
 | Area | Verdict | Notes |

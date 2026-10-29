@@ -400,6 +400,14 @@
         { delay: 650, duration: 2800, size: 150, opacity: 0.22 },
       ];
 
+      // Every ring is a full-size composited layer (up to 200vmax square) with
+      // mix-blend-mode, so dozens of them at once can exhaust GPU memory and take
+      // the tab down. Rapid clicking used to spawn 60+; the oldest rings are now
+      // dropped as soon as the cap is reached. They are the biggest and faintest
+      // by then, so the wave still reads as starting at the pointer.
+      const MAX_LIVE_RINGS = 12;
+      const liveRings = new Set();
+
       const triggerWave = (clientX, clientY) => {
         const makeRing = (size) => {
           const el = document.createElement('div');
@@ -408,6 +416,14 @@
           el.style.setProperty('--y', clientY + 'px');
           el.style.setProperty('--size', size + 'vmax');
           document.body.appendChild(el);
+          liveRings.add(el);
+
+          while (liveRings.size > MAX_LIVE_RINGS) {
+            const oldest = liveRings.values().next().value;
+            liveRings.delete(oldest);
+            oldest.getAnimations().forEach((a) => a.cancel());
+            oldest.remove();
+          }
           return el;
         };
 
@@ -419,7 +435,10 @@
             duration: 900,
             easing: 'ease-out',
           });
-          pulse.onfinish = () => el.remove();
+          pulse.onfinish = () => {
+            liveRings.delete(el);
+            el.remove();
+          };
           return;
         }
 
@@ -447,6 +466,7 @@
           // Remove the ring when the fade ends, with a timer as a safety net:
           // a finish event never arrives if the tab stops producing frames.
           const cleanup = () => {
+            liveRings.delete(el);
             if (el.isConnected) el.remove();
           };
           fade.onfinish = cleanup;
