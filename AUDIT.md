@@ -93,12 +93,29 @@ Result: Performance 99, Accessibility 100, Best Practices 96, SEO 100,
 FCP/LCP 1.6 s, CLS 0.016. HTML dropped from 24,268 to 21,577 bytes
 (6.6 KB gzip) because the filter plumbing is gone.
 
+## Fix pass 4 — applied 2026-10-29 (sway removed)
+
+The card's permanent sway was removed. It was barely visible at 3.5°/1.5 px
+amplitude, it was the last continuous animation on the page, and it was the one
+thing that needed a pause control to satisfy WCAG 2.2.2.
+
+- the whole sway block (113 lines) is gone, together with its
+  `visibilitychange` handler and the reduced-motion listener it needed
+- CSS that only existed for it went too: `perspective` on `#app`,
+  `transform-style: preserve-3d` and `will-change: transform` on `.card`, and an
+  ineffective `will-change: transform` on `#cursor` (it is positioned with
+  `left`/`top`, not with a transform)
+- verified: card is static (`transform: none`), 0 running animations after the
+  entrance fade, 0 `requestAnimationFrame` calls per second while idle
+
+HTML is now 17,025 bytes (5.4 KB gzip), down from 24,268 before the fix passes.
+
 ## Summary
 
 | Area | Verdict | Notes |
 | --- | --- | --- |
 | Speed (bytes) | **Very good** | ~6.6 KB HTML (gzip) + 25 KB font, 5 requests, TTFB 147 ms |
-| Speed (CPU) | **Improved, still costly** | No SVG filter any more; what remains is `backdrop-filter: blur(30px)` + permanent sway (see below) |
+| Speed (CPU) | **Good** | No SVG filter, no continuous animation; nothing runs while idle |
 | Measurability | **Fixed** | Lighthouse/PSI now produce scores |
 | Robustness | **Fixed** | Page renders without JS, native cursor preserved |
 | SEO basics | **Good** | Title, description, canonical, OG/Twitter, JSON-LD, robots, lang, mobile-friendly |
@@ -141,8 +158,14 @@ That filter is now gone entirely (fix pass 3): the wave is drawn by `.wave-ring`
 elements animated with `transform` and `opacity` only, so it runs on the
 compositor and no longer rasterises text.
 
-What is left after that fix (measured in one session, so the ratios are
-meaningful even though the machine was busy):
+The card sway was removed as well (fix pass 4), so the page now has **no
+continuous animation at all**:
+
+```
+after 1.5 s: 0 running animations, 0 requestAnimationFrame calls per second
+```
+
+The earlier frame-rate numbers were measured while the sway still ran:
 
 | State | fps |
 | --- | --- |
@@ -150,10 +173,9 @@ meaningful even though the machine was busy):
 | Sway running, `backdrop-filter` off | 48 |
 | Sway stopped (reduce-motion) | 60 |
 
-So the dominant remaining cost is the frosted-glass blur being recomputed on
-every frame the card moves. Since the background behind the card is a smooth
-radial gradient, a blur adds very little visually — dropping it would roughly
-double the idle frame rate. Not done yet; it is a visual decision.
+Without the sway there is nothing left to recompute the blur against, so the
+remaining cost is only the initial paint. (Frame-rate figures from this headless
+setup are unreliable anyway: a blank page measured 23 fps on the same machine.)
 
 ## 2. Measurability
 
@@ -258,16 +280,14 @@ fix pass 3 by making the container a `<main>`; axe now reports 0 violations.
 
 Motion:
 
-- The card sways **permanently**, starting automatically and never stopping.
+- The card swayed **permanently**, starting automatically and never stopping.
   WCAG 2.2.2 (A) requires a mechanism to pause/stop/hide moving content that
   starts automatically and runs for more than 5 seconds.
 - `prefers-reduced-motion: reduce` was not respected.
 
-**Partly resolved**: reduce-motion now stops the sway and the entrance animation
-(and is followed if the OS setting changes), and the sway pauses in background
-tabs. WCAG 2.2.2 is still not fully met — visitors who do *not* set "reduce
-motion" have no way to pause the sway. A small pause/play control would close
-that; it is a design decision, not done.
+**Resolved**: the sway was removed entirely (fix pass 4), so there is no
+automatically moving content left to pause. The entrance fade and the click wave
+respect `prefers-reduced-motion`.
 
 Keyboard/touch:
 
@@ -292,8 +312,8 @@ Other:
    visible from the first frame, CSS entrance fade, `prefers-reduced-motion`
    support. (`NO_FCP` gone, Lighthouse 99/100/96/100.)
 2. ~~Stop the permanent repaint of the SVG filter.~~ **Done** — the filter is gone
-   completely, the wave is three compositor-animated rings; sway pauses when
-   hidden or reduced-motion.
+   completely, the wave is three compositor-animated rings, and the sway was
+   removed (fix pass 4), so nothing animates while the page is idle.
 3. Fix contrast: tagline ~0.4 → 0.62 opacity minimum, icons 0.3 → 0.42, drop the
    "CLICK TO CREATE AN IMPACT" hint to real text colour or remove it.
 4. ~~Unify the host to `www.` in canonical/OG tags.~~ **Done** (2026-10-29).

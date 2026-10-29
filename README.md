@@ -67,6 +67,23 @@ curl -s https://www.janvoelker.de/ | diff - index.html && echo "deployed = local
   hard-coding new numbers; the design is fluid between mobile and desktop.
 - URL/domain changes: `CNAME` must contain exactly `www.janvoelker.de`.
 
+## Backlog
+
+Noted for later, agreed 2026-10-29:
+
+1. **Favicon** (`/favicon.ico` currently 404s on every visit, costs a 9 KB error
+   page and keeps Best Practices at 96 instead of 100). Also `apple-touch-icon`.
+2. **Compress `og-image.png`** (1.6 MB; a JPEG at quality 85 should land around
+   200 KB with no visible difference at 1200×630).
+3. **`sitemap.xml`** plus a `Sitemap:` line in `robots.txt`, and `og:locale`
+   `de_DE` → `en_US` (the content is English).
+
+Open design decisions (no code needed to start):
+
+- Contrast: tagline 3.5:1, social icons 2.6:1, "CLICK TO CREATE AN IMPACT" 1.9:1.
+- `backdrop-filter: blur(30px)` on the card: the last measurable frame cost.
+- The email link needs JS (`href="#"` plus the Caesar decoder).
+
 ## Known open points
 
 See **[AUDIT.md](AUDIT.md)** for the full measured audit (2026-10-28) and the fix
@@ -74,9 +91,7 @@ passes that followed. Current state:
 
 - Fixed: the page renders without JS, Lighthouse/PageSpeed Insights can measure it
   again (99 / 100 / 96 / 100), the click effect is three compositor-animated wave
-  rings with no SVG filter at all, the sway respects `prefers-reduced-motion` and
-  pauses in background tabs, and the card fades in again like the original.
-- Still open: tagline, social icons and the "CLICK TO CREATE AN IMPACT" hint fail
-  contrast; no pause control for the sway (WCAG 2.2.2); the email link needs JS;
-  no favicon, no sitemap, `og:locale: de_DE` on English content; 1.6 MB OG image;
-  `backdrop-filter` + sway keeps idle frame rate at ~22 fps in software rendering.
+  rings with no SVG filter at all, and the card fades in again like the original.
+- The sway animation was removed entirely (2026-10-29): it was barely visible, it
+  was the last continuous animation, and it needed a pause control for WCAG 2.2.2.
+  The page now runs no animation at all while idle.

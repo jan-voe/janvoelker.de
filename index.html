@@ -67,7 +67,6 @@
         mix-blend-mode: difference;
         transform: translate(-50%, -50%);
         opacity: 0;
-        will-change: transform;
         transition:
           width 0.3s ease,
           height 0.3s ease,
@@ -109,11 +108,10 @@
         justify-content: center;
         padding: clamp(2rem, 5vw, 4rem);
         box-sizing: border-box;
-        perspective: 1000px;
       }
 
-      /* No SVG filter on #app any more: the wave is drawn by .wave-ring elements,
-         which keeps the text crisp and the cost on the compositor. */
+      /* No filter and no transform on #app: the wave is drawn by .wave-ring
+         elements, which keeps the text crisp and the cost on the compositor. */
 
       .card {
         background: rgba(255, 255, 255, 0.03);
@@ -127,8 +125,6 @@
         width: 100%;
         box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
         animation: card-in 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
-        will-change: transform;
-        transform-style: preserve-3d;
         position: relative;
       }
 
@@ -460,120 +456,6 @@
         triggerWave(e.clientX, e.clientY);
       });
 
-      // Automatic underwater plant sway animation (no device sensor)
-      (function () {
-        const card = document.getElementById('card');
-        if (!card) return;
-
-        // Animation frame ID
-        let animationFrame = null;
-        let startTime = null;
-
-        // Sway parameters
-        const SWAY_SPEED = 0.001;
-        const SWAY_ROTATION_AMPLITUDE = 3.5; // degrees - slightly reduced for smoother motion
-        const SWAY_TRANSLATION_AMPLITUDE = 1.5; // pixels - reduced translation jerkiness
-        const SWAY_RANDOM_INTERVAL = 8000; // ms - ensure target changes less frequently
-
-        let swayTime = 0;
-        let lastRandomTime = 0;
-        let targetSwayRotX = 0;
-        let targetSwayRotY = 0;
-        let targetSwayX = 0;
-        let targetSwayY = 0;
-        let currentSwayRotX = 0;
-        let currentSwayRotY = 0;
-        let currentSwayX = 0;
-        let currentSwayY = 0;
-
-        // Generate new random targets
-        const generateRandomTargets = () => {
-          targetSwayRotX = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
-          targetSwayRotY = (Math.random() - 0.5) * 2 * SWAY_ROTATION_AMPLITUDE;
-          targetSwayX = (Math.random() - 0.5) * 2 * SWAY_TRANSLATION_AMPLITUDE;
-          targetSwayY = (Math.random() - 0.5) * 2 * SWAY_TRANSLATION_AMPLITUDE;
-        };
-
-        // Update sway values
-        const updateSway = (time) => {
-          if (!startTime) startTime = time;
-          swayTime = (time - startTime) * SWAY_SPEED;
-
-          // Generate new random targets periodically
-          if (time - lastRandomTime > SWAY_RANDOM_INTERVAL) {
-            lastRandomTime = time;
-            generateRandomTargets();
-          }
-
-          // Smooth interpolation towards targets
-          const swaySmoothing = 0.01;
-          currentSwayX += (targetSwayX - currentSwayX) * swaySmoothing;
-          currentSwayY += (targetSwayY - currentSwayY) * swaySmoothing;
-          currentSwayRotX += (targetSwayRotX - currentSwayRotX) * swaySmoothing;
-          currentSwayRotY += (targetSwayRotY - currentSwayRotY) * swaySmoothing;
-
-          // Add subtle periodic movement using sine waves for organic feel
-          const waveRotX = Math.sin(swayTime * 0.3) * 0.4;
-          const waveRotY = Math.cos(swayTime * 0.9) * 0.4;
-          const waveX = Math.sin(swayTime * 0.5) * 0.2;
-          const waveY = Math.cos(swayTime * 0.7) * 0.2;
-
-          return {
-            x: currentSwayX + waveX,
-            y: currentSwayY + waveY,
-            rotX: currentSwayRotX + waveRotX,
-            rotY: currentSwayRotY + waveRotY,
-          };
-        };
-
-        // Apply transform to card with sway
-        const applySway = (time) => {
-          const sway = updateSway(time);
-
-          // Apply transform with translation and rotation
-          card.style.transform = `translate(${sway.x}px, ${sway.y}px) rotateX(${sway.rotX}deg) rotateY(${sway.rotY}deg)`;
-
-          // Continue animation
-          animationFrame = requestAnimationFrame(applySway);
-        };
-
-        const stopSway = () => {
-          if (animationFrame) {
-            cancelAnimationFrame(animationFrame);
-            animationFrame = null;
-          }
-          card.style.transform = '';
-        };
-
-        const startSway = () => {
-          if (animationFrame || prefersReducedMotion.matches) return;
-          startTime = performance.now();
-          lastRandomTime = startTime;
-          generateRandomTargets();
-          animationFrame = requestAnimationFrame(applySway);
-        };
-
-        // Wait for the 900ms CSS entrance animation to finish before taking over
-        // the card's transform, otherwise the animation would win over the inline style.
-        setTimeout(startSway, 1100);
-
-        // Don't animate in a background tab.
-        window.addEventListener('visibilitychange', () => {
-          if (document.hidden) stopSway();
-          else startSway();
-        });
-
-        // Follow the OS "reduce motion" setting, now and if it changes at runtime.
-        const onMotionPreferenceChange = (event) => {
-          if (event.matches) stopSway();
-          else startSway();
-        };
-        if (prefersReducedMotion.addEventListener) {
-          prefersReducedMotion.addEventListener('change', onMotionPreferenceChange);
-        } else if (prefersReducedMotion.addListener) {
-          prefersReducedMotion.addListener(onMotionPreferenceChange);
-        }
-      })();
     </script>
   </body>
 </html>
