@@ -30,11 +30,34 @@ FCP / LCP     1.6 s / 1.6 s   TBT 0 ms   CLS 0.027
 disabled the page now renders fully (content-area pixel coverage 4.19% vs 0.06%
 blank before).
 
+## Fix pass 2 — applied 2026-10-29 (fade-in entrance)
+
+The original fade-in was restored on request (fade only, no slide), and it was
+kept to a form that stays measurable. A fade from `opacity: 0` cannot be
+measured: content painted at opacity 0 is not a contentful paint, so Lighthouse
+aborted with `NO_FCP` again (reproduced, so it was not a one-off).
+
+| Attempt | Performance | FCP / LCP | Note |
+| --- | --- | --- | --- |
+| Fade from `opacity: 0`, Google Fonts | 93 | 2.6 s | measurably worse, and `NO_FCP` on a second run |
+| Fade from `opacity: 0`, self-hosted font | *no result* | – | `NO_FCP`, not measurable |
+| **Fade from `opacity: 0.2`, Google Fonts** | **99** | **1.6 s / 1.6 s** | shipped: two consecutive runs identical, CLS 0.016 |
+
+The entrance now animates `opacity` only, from 0.2 to 1 over 800 ms. On this dark
+background 0.2 already reads as "fading in from nothing", while the content still
+counts as painted from the first frame. It is a plain CSS animation, so it runs
+without JS, and `prefers-reduced-motion` turns it off.
+
+Self-hosting Sora was tried and reverted: it reached Performance 100 with
+FCP 0.9 s, but the font is meant to stay on Google Fonts. The numbers are kept
+here in case that decision is revisited — the render-blocking font stylesheet is
+worth 918 ms of the 1.6 s FCP.
+
 ## Summary
 
 | Area | Verdict | Notes |
 | --- | --- | --- |
-| Speed (bytes) | **Very good** | ~6 KB HTML (gzip) + ~25 KB font, 5 requests, TTFB 147 ms |
+| Speed (bytes) | **Very good** | ~7 KB HTML (gzip) + 25 KB font, 5 requests, TTFB 147 ms |
 | Speed (CPU) | **Improved, still costly** | Filter is now gated; what remains is `backdrop-filter: blur(30px)` + permanent sway (see below) |
 | Measurability | **Fixed** | Lighthouse/PSI now produce scores |
 | Robustness | **Fixed** | Page renders without JS, native cursor preserved |

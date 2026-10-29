@@ -131,22 +131,26 @@
         max-width: 800px;
         width: 100%;
         box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
-        animation: card-in 900ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+        animation: card-in 800ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
         will-change: transform;
         transform-style: preserve-3d;
         position: relative;
       }
 
-      /* Entrance uses transform only, never opacity: the content is painted from
-         the first frame, so FCP/LCP are measurable and visitors without JS still
-         see everything. `backwards` (not `both`) matters: a persistent fill would
-         keep overriding the inline transform the sway animation writes later. */
+      /* Entrance: fade only, no movement. Implemented as a CSS animation instead
+         of a JS-triggered transition, so it also runs without JS and always ends
+         with the card fully visible.
+
+         It starts at opacity 0.2, not 0: content painted at opacity 0 does not
+         count as a contentful paint, which made Lighthouse abort with NO_FCP and
+         left FCP/LCP unmeasurable (the original 0 → 1 fade was exactly that).
+         On this dark background 0.2 already reads as "fading in from nothing". */
       @keyframes card-in {
         from {
-          transform: translateY(28px);
+          opacity: 0.2;
         }
         to {
-          transform: translateY(0);
+          opacity: 1;
         }
       }
 
