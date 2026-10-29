@@ -22,7 +22,7 @@ Result of that pass, measured locally (`lighthouse http://127.0.0.1:8000/`, mobi
 Performance    99
 Accessibility 100
 SEO           100
-Best Practices 96   (only the missing favicon 404)
+Best Practices 100  (favicon added in fix pass 7)
 FCP / LCP     1.6 s / 1.6 s   TBT 0 ms   CLS 0.027
 ```
 
@@ -152,6 +152,23 @@ Fixed in three steps, all measured at 1512×982 (full window on a 14" MacBook):
 Stress test (30–40 clicks as fast as possible): max 8 rings at once, everything
 gone after ~3.3 s, no crash, no page errors, 2 rings per tap on mobile.
 
+## Fix pass 7 — applied 2026-10-29 (favicon)
+
+The favicon set was added to the repo root, where browsers look for it without a
+link tag (`/favicon.ico`, `/apple-touch-icon.png`):
+
+- `favicon.ico` (16/32/48 px), `favicon-16x16.png`, `favicon-32x32.png`,
+  `apple-touch-icon.png` (180 px), `android-chrome-192/512.png`
+- `<link rel="icon">` entries, `apple-touch-icon` and `manifest` in the head
+- `site.webmanifest` had an empty `name`, an empty `short_name` and
+  `theme_color: #ffffff`; it now carries the site name and `#00121f` to match the
+  page
+- `<meta name="theme-color" content="#00121f">` added
+- `scripts/serve.mjs` learned the `.webmanifest` MIME type
+
+Result: `/favicon.ico` answers 200 instead of a 9 KB 404 page on every visit, and
+Best Practices went from 96 to **100**. Lighthouse: 99 / 100 / 100 / 100.
+
 ## Summary
 
 | Area | Verdict | Notes |
@@ -161,7 +178,7 @@ gone after ~3.3 s, no crash, no page errors, 2 rings per tap on mobile.
 | Measurability | **Fixed** | Lighthouse/PSI now produce scores |
 | Robustness | **Fixed** | Page renders without JS, native cursor preserved |
 | SEO basics | **Good** | Title, description, canonical, OG/Twitter, JSON-LD, robots, lang, mobile-friendly |
-| SEO details | **Mostly done** | Sitemap, OG image size and `og:locale` fixed; only the favicon is missing |
+| SEO details | **Done** | Sitemap, OG image size, `og:locale` and a full favicon set |
 | Accessibility | **Contrast still fails** | 3 contrast failures remain; axe is otherwise clean, motion respects the OS setting |
 
 ## 1. Performance

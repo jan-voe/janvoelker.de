@@ -11,6 +11,9 @@ Single static page, no build step, published straight from this repo via **GitHu
 ```
 .
 ├── index.html        # the whole site: <head>/SEO, CSS in <style>, JS in <script>
+├── favicon.ico       # 16/32/48 px icon (browser tab, /favicon.ico)
+├── favicon-16x16.png # + 32x32, apple-touch-icon 180x180, android 192/512
+├── site.webmanifest  # PWA manifest: name, icons, dark theme colour
 ├── og-image.jpg      # 1200×630 social preview image (113 KB)
 ├── CNAME             # www.janvoelker.de → GitHub Pages custom domain
 ├── robots.txt        # crawler rules, points at the sitemap
@@ -70,14 +73,10 @@ curl -s https://www.janvoelker.de/ | diff - index.html && echo "deployed = local
 
 ## Backlog
 
-Noted for later, agreed 2026-10-29:
-
-1. **Favicon** (`/favicon.ico` currently 404s on every visit, costs a 9 KB error
-   page and keeps Best Practices at 96 instead of 100). Also `apple-touch-icon`.
-
-Done from that list: the OG image is a 113 KB JPEG instead of a 1.6 MB PNG, there
-is a `sitemap.xml` with a `Sitemap:` line in `robots.txt`, and `og:locale` is
-`en_US` to match the English content.
+The backlog from 2026-10-29 is done: favicon package (including
+`apple-touch-icon`, web manifest and `theme-color`), OG image as a 113 KB JPEG
+instead of a 1.6 MB PNG, `sitemap.xml` with a `Sitemap:` line in `robots.txt`,
+and `og:locale` set to `en_US`.
 
 Open design decisions (no code needed to start):
 
