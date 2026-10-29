@@ -35,7 +35,6 @@
         --abyss: #00121f;
         --ocean: #002b49;
         --cyan: #00d1ff;
-        --white: #ffffff;
       }
 
       body {
@@ -113,12 +112,8 @@
         perspective: 1000px;
       }
 
-      /* The SVG ripple filter re-rasterises the whole #app subtree on every frame
-         the card moves, so it is only attached while a ripple is actually running
-         (class toggled from JS). Without JS, no filter is ever applied. */
-      #app.rippling {
-        filter: url(#ripple);
-      }
+      /* No SVG filter on #app any more: the wave is drawn by .wave-ring elements,
+         which keeps the text crisp and the cost on the compositor. */
 
       .card {
         background: rgba(255, 255, 255, 0.03);
@@ -131,7 +126,7 @@
         max-width: 800px;
         width: 100%;
         box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
-        animation: card-in 800ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+        animation: card-in 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
         will-change: transform;
         transform-style: preserve-3d;
         position: relative;
@@ -159,8 +154,7 @@
           animation: none;
         }
         #cursor,
-        .social-link,
-        .wave-overlay {
+        .social-link {
           transition: none;
         }
         .social-link:hover {
@@ -248,25 +242,33 @@
         }
       }
 
-      .wave-overlay {
+      /* Expanding wave rings. Each ring is one fixed-size element that is scaled
+         up and faded out, so the work stays on the compositor: no repaint of the
+         page, no SVG filter (feDisplacementMap/feTurbulence is unreliable and
+         expensive on mobile GPUs). Three rings per click, staggered, read as a
+         wave travelling outwards instead of a pattern that zooms in and out. */
+      .wave-ring {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        left: var(--x, 50%);
+        top: var(--y, 50%);
+        width: var(--size, 150vmax);
+        height: var(--size, 150vmax);
+        margin-left: calc(var(--size, 150vmax) / -2);
+        margin-top: calc(var(--size, 150vmax) / -2);
+        border-radius: 50%;
         pointer-events: none;
-        background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent var(--s, 0px), rgba(0, 209, 255, 0.3) calc(var(--s, 0px) + 100px), transparent calc(var(--s, 0px) + 500px));
-        opacity: var(--o, 0);
         z-index: 9999;
+        background: radial-gradient(
+          circle,
+          transparent 40%,
+          rgba(0, 209, 255, 0.55) 46%,
+          rgba(0, 209, 255, 0.16) 52%,
+          transparent 62%
+        );
         mix-blend-mode: screen;
-        transition: opacity 0.5s ease-out;
-      }
-
-      /* More visible wave overlay on mobile/touch devices */
-      @media (hover: none) and (pointer: coarse) {
-        .wave-overlay {
-          background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent var(--s, 0px), rgba(0, 209, 255, 0.4) calc(var(--s, 0px) + 150px), transparent calc(var(--s, 0px) + 600px));
-        }
+        opacity: 0;
+        transform: scale(0.02);
+        will-change: transform, opacity;
       }
     </style>
     <script type="application/ld+json">
@@ -296,7 +298,7 @@
     <div id="cursor"></div>
     <div class="liquid-bg"></div>
 
-    <div id="app">
+    <main id="app">
       <div class="card" id="card">
         <span style="color: var(--cyan); font-weight: 800; letter-spacing: 0.3em; font-size: clamp(0.6rem, 2vw, 0.8rem); text-transform: uppercase; display: block; margin-bottom: 2.2rem"
           >UX Designer @ <a href="https://got-bag.com/" target="_blank" class="company-link">GOT BAG</a></span
@@ -324,77 +326,13 @@
           <span class="impact-tap">TAP TO CREATE AN IMPACT</span>
         </div>
       </div>
-    </div>
-
-    <svg width="0" height="0" viewBox="0 0 100 100" style="position: absolute; left: -9999px">
-      <defs>
-        <filter id="ripple" x="-20%" y="-20%" width="140%" height="140%" filterUnits="objectBoundingBox" primitiveUnits="userSpaceOnUse">
-          <feTurbulence id="turb" type="turbulence" baseFrequency="0" numOctaves="3" seed="1" result="noise" />
-          <feDisplacementMap id="disp" in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </defs>
-    </svg>
+    </main>
 
     <script>
       const cursor = document.getElementById('cursor');
-      const card = document.getElementById('card');
-      const app = document.getElementById('app');
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
       const canUseCustomCursor = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-
-      // Feature detection for SVG filters
-      const supportsSvgFilters = (() => {
-        try {
-          // Create a temporary SVG with a filter
-          const svgNS = 'http://www.w3.org/2000/svg';
-          const svg = document.createElementNS(svgNS, 'svg');
-          svg.setAttribute('width', '0');
-          svg.setAttribute('height', '0');
-          svg.style.position = 'absolute';
-          svg.style.left = '-9999px';
-
-          const defs = document.createElementNS(svgNS, 'defs');
-          const filter = document.createElementNS(svgNS, 'filter');
-          filter.setAttribute('id', 'svg-filter-test');
-
-          const feGaussianBlur = document.createElementNS(svgNS, 'feGaussianBlur');
-          feGaussianBlur.setAttribute('stdDeviation', '2');
-          filter.appendChild(feGaussianBlur);
-          defs.appendChild(filter);
-          svg.appendChild(defs);
-
-          // Create a test div that uses the filter
-          const testDiv = document.createElement('div');
-          testDiv.style.width = '10px';
-          testDiv.style.height = '10px';
-          testDiv.style.backgroundColor = 'red';
-          testDiv.style.filter = 'url(#svg-filter-test)';
-
-          document.body.appendChild(svg);
-          document.body.appendChild(testDiv);
-
-          // Check if filter property is recognized
-          const hasFilter = testDiv.style.filter.includes('url');
-
-          // Clean up
-          document.body.removeChild(svg);
-          document.body.removeChild(testDiv);
-
-          return hasFilter;
-        } catch (e) {
-          return false;
-        }
-      })();
-
-      const turb = supportsSvgFilters ? document.getElementById('turb') : null;
-      const disp = supportsSvgFilters ? document.getElementById('disp') : null;
-
-      // The filter is attached to #app only while a ripple is on screen.
-      const setRippleFilter = (on) => {
-        if (!app) return;
-        app.classList.toggle('rippling', on && supportsSvgFilters);
-      };
 
       document.addEventListener('mousemove', (e) => {
         if (!canUseCustomCursor) return;
@@ -449,99 +387,77 @@
         });
       });
 
-      const ripples = [];
+      // Three rings per click, staggered: the front of each one travels outwards
+      // while it fades, so the eye reads a wave rolling away from the pointer.
+      // Durations are deliberately different so the rings never move as a block.
+      const WAVE_RINGS = [
+        { delay: 0, duration: 2200, size: 200, opacity: 0.5 },
+        { delay: 320, duration: 2500, size: 175, opacity: 0.34 },
+        { delay: 650, duration: 2800, size: 150, opacity: 0.22 },
+      ];
+
       const triggerWave = (clientX, clientY) => {
-        const ripple = {
-          x: clientX,
-          y: clientY,
-          start: performance.now(),
-          duration: 3500,
-          el: document.createElement('div'),
+        const makeRing = (size) => {
+          const el = document.createElement('div');
+          el.className = 'wave-ring';
+          el.style.setProperty('--x', clientX + 'px');
+          el.style.setProperty('--y', clientY + 'px');
+          el.style.setProperty('--size', size + 'vmax');
+          document.body.appendChild(el);
+          return el;
         };
-        ripple.el.className = 'wave-overlay';
-        ripple.el.style.setProperty('--x', clientX + 'px');
-        ripple.el.style.setProperty('--y', clientY + 'px');
-        // Set initial values for CSS custom properties
-        ripple.el.style.setProperty('--s', '0px');
-        ripple.el.style.setProperty('--o', '0');
-        document.body.appendChild(ripple.el);
-        ripples.push(ripple);
-        setRippleFilter(true);
 
-        if (ripples.length === 1) {
-          requestAnimationFrame(animateRipples);
-        }
-      };
-
-      const animateRipples = (time) => {
-        if (ripples.length === 0) {
-          if (!isTouchDevice && turb && disp) {
-            turb.setAttribute('baseFrequency', '0');
-            disp.setAttribute('scale', '0');
-          }
-          setRippleFilter(false);
+        // With reduced motion the ring appears and fades, but never expands.
+        if (prefersReducedMotion.matches) {
+          const el = makeRing(140);
+          el.style.transform = 'scale(1)';
+          const pulse = el.animate([{ opacity: 0 }, { opacity: 0.28, offset: 0.3 }, { opacity: 0 }], {
+            duration: 900,
+            easing: 'ease-out',
+          });
+          pulse.onfinish = () => el.remove();
           return;
         }
 
-        let totalScale = 0;
-        let totalFreq = 0;
+        const boost = isTouchDevice ? 1.25 : 1;
+        for (const ring of WAVE_RINGS) {
+          const el = makeRing(ring.size);
+          const duration = isTouchDevice ? ring.duration * 1.15 : ring.duration;
+          const timing = { duration, delay: ring.delay };
 
-        for (let i = ripples.length - 1; i >= 0; i--) {
-          const r = ripples[i];
-          const elapsed = time - r.start;
-          const p = elapsed / r.duration;
+          // Two separate animations: one segment for the travel (ease-out, so the
+          // front slows as it spreads) and one for the light. Mixing both into a
+          // single keyframe list would apply the easing twice and stutter.
+          el.animate([{ transform: 'scale(0.02)' }, { transform: 'scale(1)' }], {
+            ...timing,
+            // Linear travel: a wave front moves at a steady speed. An ease-out
+            // made it sprint away from the pointer and then crawl, which read as
+            // a pulse rather than a rolling wave.
+            easing: 'linear',
+          });
+          const fade = el.animate(
+            [{ opacity: 0 }, { opacity: Math.min(ring.opacity * boost, 1), offset: 0.1 }, { opacity: 0 }],
+            { ...timing, easing: 'linear' }
+          );
 
-          if (p < 1) {
-            const easeOut = 1 - Math.pow(1 - p, 3);
-            const fade = 1 - Math.pow(p, 2);
-            // Custom wave intensity: quick rise to peak, then slow fade
-            // Peak at 30% of duration, then quadratic fade
-            const waveIntensity = p < 0.3 ? p / 0.3 : 1 - Math.pow((p - 0.3) / 0.7, 2);
-            const freq = 0.005 + waveIntensity * 0.0015; // Reduced from 0.002 for less dramatic effect
-            // Scale follows wave intensity with additional fade - reduced for less dramatic effect
-            const scale = waveIntensity * 90 * fade; // Reduced from 120
-
-            // Adjust radius and opacity for touch devices
-            const maxRadius = isTouchDevice ? Math.min(2500, Math.max(window.innerWidth, window.innerHeight) * 0.8) : 2500;
-            const opacityMultiplier = isTouchDevice ? 1.2 : 0.8;
-            r.el.style.setProperty('--s', easeOut * maxRadius + 'px');
-            r.el.style.setProperty('--o', fade * opacityMultiplier);
-
-            totalScale += scale;
-            totalFreq = Math.max(totalFreq, freq);
-          } else {
-            r.el.remove();
-            ripples.splice(i, 1);
-            // Release the filter on the same frame the last ripple disappears,
-            // rather than waiting for one more animation frame to come around.
-            if (ripples.length === 0) {
-              if (!isTouchDevice && turb && disp) {
-                turb.setAttribute('baseFrequency', '0');
-                disp.setAttribute('scale', '0');
-              }
-              setRippleFilter(false);
-            }
-          }
+          // Remove the ring when the fade ends, with a timer as a safety net:
+          // a finish event never arrives if the tab stops producing frames.
+          const cleanup = () => {
+            if (el.isConnected) el.remove();
+          };
+          fade.onfinish = cleanup;
+          fade.oncancel = cleanup;
+          setTimeout(cleanup, duration + ring.delay + 100);
         }
-
-        if (!isTouchDevice && turb && disp) {
-          turb.setAttribute('baseFrequency', totalFreq);
-          disp.setAttribute('scale', Math.min(totalScale, 150)); // Reduced from 200 for less dramatic effect
-        }
-
-        requestAnimationFrame(animateRipples);
       };
 
-      document.addEventListener('mousedown', (e) => {
-        if (!e.target.closest('a')) {
-          triggerWave(e.clientX, e.clientY);
-        }
-      });
-      document.addEventListener('touchstart', (e) => {
-        if (!e.target.closest('a')) {
-          const touch = e.touches[0];
-          triggerWave(touch.clientX, touch.clientY);
-        }
+      // pointerdown covers mouse, touch and pen exactly once per interaction;
+      // listening to mousedown and touchstart both double-fired on touch devices,
+      // where the browser also synthesises a mousedown.
+      document.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('a')) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        triggerWave(e.clientX, e.clientY);
       });
 
       // Automatic underwater plant sway animation (no device sensor)

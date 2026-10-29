@@ -24,11 +24,11 @@ Single static page, no build step, published straight from this repo via **GitHu
 | Section | Approx. lines | What to change there |
 | --- | --- | --- |
 | `<head>` meta / Open Graph / Twitter | 4–32 | Title, description, social preview, canonical, Google Fonts |
-| `:root` colour tokens | 34–39 | `--abyss`, `--ocean`, `--cyan` |
-| Styles | 33–271 | Layout, responsive `clamp()` sizing, cursor, entrance fade, wave overlay |
-| JSON-LD `Person` schema | 272–293 | Job title, employer, `sameAs` profiles |
-| Markup | 295–336 | Headline, tagline, social links, SVG ripple filter |
-| Scripts | 338–661 | Custom cursor, SVG-filter feature detection, ripple/impact effect, card sway |
+| `:root` colour tokens | 34–38 | `--abyss`, `--ocean`, `--cyan` |
+| Styles | 33–273 | Layout, responsive `clamp()` sizing, cursor, entrance fade, wave rings |
+| JSON-LD `Person` schema | 274–295 | Job title, employer, `sameAs` profiles |
+| Markup | 297–329 | Headline, tagline, social links |
+| Scripts | 331–577 | Custom cursor, wave effect, card sway |
 
 ## Local preview
 
@@ -73,11 +73,10 @@ See **[AUDIT.md](AUDIT.md)** for the full measured audit (2026-10-28) and the fi
 passes that followed. Current state:
 
 - Fixed: the page renders without JS, Lighthouse/PageSpeed Insights can measure it
-  again (99 / 100 / 100 / 96), the SVG ripple filter is only attached while a
-  ripple runs, the sway respects `prefers-reduced-motion` and pauses in background
-  tabs, and the card fades in again like the original (opacity only, no slide).
+  again (99 / 100 / 96 / 100), the click effect is three compositor-animated wave
+  rings with no SVG filter at all, the sway respects `prefers-reduced-motion` and
+  pauses in background tabs, and the card fades in again like the original.
 - Still open: tagline, social icons and the "CLICK TO CREATE AN IMPACT" hint fail
   contrast; no pause control for the sway (WCAG 2.2.2); the email link needs JS;
-  `canonical`/`og:*` use the apex host while `CNAME` and the live URL use `www.`;
   no favicon, no sitemap, `og:locale: de_DE` on English content; 1.6 MB OG image;
   `backdrop-filter` + sway keeps idle frame rate at ~22 fps in software rendering.

@@ -53,24 +53,64 @@ FCP 0.9 s, but the font is meant to stay on Google Fonts. The numbers are kept
 here in case that decision is revisited — the render-blocking font stylesheet is
 worth 918 ms of the 1.6 s FCP.
 
+## Fix pass 3 — applied 2026-10-29 (wave without SVG filter)
+
+The click effect was rebuilt from scratch. Two things were wrong with it:
+
+1. It looked like "scrubbing forwards and backwards" instead of a wave rolling
+   outwards. The filter animated `baseFrequency` up and back down, which changes
+   the *wavelength* of the turbulence, not its position — the eye reads that as a
+   zoom.
+2. `feTurbulence` + `feDisplacementMap` are unreliable and expensive on mobile
+   GPUs, and they rasterised the whole `#app` subtree on every frame.
+
+Now: the SVG filter is gone completely. A click spawns three rings
+(`.wave-ring`) that grow with `transform: scale()` and fade with `opacity`, i.e.
+purely on the compositor. Travel is `linear`, so the front moves at a constant
+speed like a real wave.
+
+```js
+{ delay: 0,   duration: 2200, size: 200, opacity: 0.5  }
+{ delay: 320, duration: 2500, size: 175, opacity: 0.34 }
+{ delay: 650, duration: 2800, size: 150, opacity: 0.22 }
+```
+
+Two bugs surfaced while building it:
+
+- `mousedown` **and** `touchstart` were both bound, and a tap makes the browser
+  synthesise a `mousedown` too, so one tap fired six rings instead of three. Both
+  listeners are replaced by a single `pointerdown`.
+- Cleanup hung on the animation's `finish` event. In a tab that stops producing
+  frames that event never arrives and the ring elements stay in the DOM. A timer
+  now removes them as a safety net (verified: 0 elements left afterwards, also
+  after six rapid clicks).
+
+Also in this pass: `<div id="app">` became `<main id="app">`, which was the last
+axe violation ("all page content should be contained by landmarks"). axe now
+reports **0 violations, 22 passes**.
+
+Result: Performance 99, Accessibility 100, Best Practices 96, SEO 100,
+FCP/LCP 1.6 s, CLS 0.016. HTML dropped from 24,268 to 21,577 bytes
+(6.6 KB gzip) because the filter plumbing is gone.
+
 ## Summary
 
 | Area | Verdict | Notes |
 | --- | --- | --- |
-| Speed (bytes) | **Very good** | ~7 KB HTML (gzip) + 25 KB font, 5 requests, TTFB 147 ms |
-| Speed (CPU) | **Improved, still costly** | Filter is now gated; what remains is `backdrop-filter: blur(30px)` + permanent sway (see below) |
+| Speed (bytes) | **Very good** | ~6.6 KB HTML (gzip) + 25 KB font, 5 requests, TTFB 147 ms |
+| Speed (CPU) | **Improved, still costly** | No SVG filter any more; what remains is `backdrop-filter: blur(30px)` + permanent sway (see below) |
 | Measurability | **Fixed** | Lighthouse/PSI now produce scores |
 | Robustness | **Fixed** | Page renders without JS, native cursor preserved |
 | SEO basics | **Good** | Title, description, canonical, OG/Twitter, JSON-LD, robots, lang, mobile-friendly |
-| SEO details | **Needs work** | Apex↔www mismatch, no sitemap, no favicon, `og:locale` de_DE on an English page |
-| Accessibility | **Contrast still fails** | 3 contrast failures remain; motion now respects the OS setting |
+| SEO details | **Needs work** | No sitemap, no favicon, `og:locale` de_DE on an English page (the www mismatch is fixed) |
+| Accessibility | **Contrast still fails** | 3 contrast failures remain; axe is otherwise clean, motion respects the OS setting |
 
 ## 1. Performance
 
 Request profile (cold load, 1280×800):
 
 ```
-200  document    6,088 B  https://www.janvoelker.de/            (21,470 B raw, 6 KB gzip)
+200  document    6,558 B  https://www.janvoelker.de/            (21,577 B raw, 6.6 KB gzip)
 200  stylesheet      0 B  fonts.googleapis.com/css2?family=Sora  (1.8 KB, render-blocking, 3rd party)
 200  font       25,240 B  fonts.gstatic.com/.../sora/v17/*.woff2
 404  other       5,254 B  https://www.janvoelker.de/favicon.ico  ← 404 page downloaded on every visit
@@ -83,7 +123,7 @@ Request profile (cold load, 1280×800):
   falls back to 400.
 
 **The expensive part is animation, not loading.** Measured idle frame rate after load,
-before the fix pass (same session, back to back):
+before the fix passes (same session, back to back):
 
 | State | fps (headless) |
 | --- | --- |
@@ -96,8 +136,10 @@ permanently. Because the card is transformed on every animation frame, the
 browser had to re-rasterise the whole filtered subtree continuously — even when
 no ripple was active and `baseFrequency` / `scale` were 0. That was a permanent
 CPU/GPU cost and battery drain for an effect that only shows up after a click.
-It is now attached only while a ripple runs (verified: `#app` filter is `none`
-when idle, `url("#ripple")` during a click, back to `none` afterwards).
+
+That filter is now gone entirely (fix pass 3): the wave is drawn by `.wave-ring`
+elements animated with `transform` and `opacity` only, so it runs on the
+compositor and no longer rasterises text.
 
 What is left after that fix (measured in one session, so the ratios are
 meaningful even though the machine was busy):
@@ -211,8 +253,8 @@ scores accessibility 100), because automated checks skip text whose effective
 colour comes from an `opacity` below 1. The ratios above are computed against the
 actual composited colours, so they are the real numbers.
 
-axe-core: 1 moderate issue — no landmarks (`<main>`) around the content
-(`#card > span`, `h1`, `p` are outside any landmark).
+axe-core: was one moderate issue (no landmarks around the content). **Resolved** in
+fix pass 3 by making the container a `<main>`; axe now reports 0 violations.
 
 Motion:
 
@@ -247,15 +289,17 @@ Other:
 ## Suggested order of work
 
 1. ~~Make the page visible without JS and let it be measured.~~ **Done** — card
-   visible from the first frame, CSS transform-only entrance, `prefers-reduced-motion`
-   support. (`NO_FCP` gone, Lighthouse 99/100/100/96.)
-2. ~~Stop the permanent repaint of the SVG filter.~~ **Done** — `#app.rippling`
-   only while a ripple runs; sway pauses when hidden or reduced-motion.
+   visible from the first frame, CSS entrance fade, `prefers-reduced-motion`
+   support. (`NO_FCP` gone, Lighthouse 99/100/96/100.)
+2. ~~Stop the permanent repaint of the SVG filter.~~ **Done** — the filter is gone
+   completely, the wave is three compositor-animated rings; sway pauses when
+   hidden or reduced-motion.
 3. Fix contrast: tagline ~0.4 → 0.62 opacity minimum, icons 0.3 → 0.42, drop the
    "CLICK TO CREATE AN IMPACT" hint to real text colour or remove it.
-4. Unify the host to `www.` in canonical/OG tags, add `sitemap.xml`, add a
-   favicon, compress `og-image.png`, set `og:locale = en_US`.
-5. Drop or cheapen `backdrop-filter: blur(30px)` if idle smoothness matters
+4. ~~Unify the host to `www.` in canonical/OG tags.~~ **Done** (2026-10-29).
+5. Add `sitemap.xml`, a favicon (`/favicon.ico` currently 404s on every visit) and
+   compress `og-image.png` (1.6 MB), set `og:locale = en_US`.
+6. Drop or cheapen `backdrop-filter: blur(30px)` if idle smoothness matters
    (22 → 48 fps measured), and self-host Sora to remove the render-blocking
    third-party request (918 ms).
-6. Extend the content (about text, case-study links) so there is something to rank.
+7. Extend the content (about text, case-study links) so there is something to rank.
